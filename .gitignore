@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Models / data artifacts
+*.gguf
+*.safetensors
+models/weights/
+data/raw/
+data/processed/
+outputs/
+
+# Traces (publish deliberately, don't auto-commit raw)
+traces/raw/
+
+# OS
+.DS_Store
+Thumbs.db

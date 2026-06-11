@@ -1,0 +1,30 @@
+# Core app
+gradio>=4.44
+python-dotenv>=1.0
+
+# Models / inference
+transformers>=4.44
+torch>=2.3
+accelerate>=0.33
+peft>=0.12            # LoRA fine-tuning
+sentencepiece
+pillow>=10.0
+pymupdf>=1.24        # PDF rasterization (fitz)
+
+# Sponsors
+cohere>=5.0          # Aya / Tiny Aya (Feature 3)
+modal>=0.64          # fine-tuning job (Phase 3)
+# FLUX (Feature 4): via diffusers or BFL API
+diffusers>=0.30
+
+# Output
+reportlab>=4.2       # print-ready PDF export
+jinja2>=3.1
+
+# Data prep
+datasets>=2.20
+pandas>=2.2
+
+# Dev
+ruff
+pytest
