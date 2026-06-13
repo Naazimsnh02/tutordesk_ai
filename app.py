@@ -1,13 +1,15 @@
-"""TutorDesk AI — Gradio entry point (Hugging Face Space).
+"""TutorDesk AI — Gradio 6 entry point (Hugging Face Space).
 
 The Space is a thin client: all heavy inference runs on Modal (serving/modal_app.py).
-Tabs are added phase by phase; stubs show "Coming soon" until their phase lands.
+Custom theme + CSS lives in frontend/theme.py (Off-Brand badge).
+In Gradio 6, theme= and css= are passed to demo.launch(), not gr.Blocks().
 """
 from __future__ import annotations
 
 import gradio as gr
 
 from config import CONFIG
+from frontend.theme import CUSTOM_CSS, theme
 from models.aya import localize
 from pipelines.auto_grade import grade_sheet
 from pipelines.illustrated_worksheet import build_illustrated_pack
@@ -243,9 +245,13 @@ def run_illustrated_pack(
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="TutorDesk AI") as demo:
-        gr.Markdown(
-            "# TutorDesk AI\n"
-            "### AI copilot for Indian tuition teachers · Classes 6–10 · Math & Science · CBSE"
+        # Branded header (styled via #td-header in CUSTOM_CSS)
+        gr.HTML(
+            '<div id="td-header">'
+            "<h1>TutorDesk AI</h1>"
+            "<p>AI copilot for Indian tuition teachers &nbsp;·&nbsp; "
+            "Classes 6–10 &nbsp;·&nbsp; Math &amp; Science &nbsp;·&nbsp; CBSE/NCERT</p>"
+            "</div>"
         )
 
         with gr.Tabs():
@@ -492,8 +498,19 @@ def build_app() -> gr.Blocks:
                     ],
                 )
 
+        # Footer
+        gr.HTML(
+            '<div id="td-footer">'
+            "Built with ❤️ for Indian teachers · "
+            "<a href='https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b' "
+            "target='_blank'>Fine-tuned Qwen3-4B</a> · "
+            "Powered by Modal, MiniCPM-V, Tiny Aya &amp; FLUX.1-schnell"
+            "</div>"
+        )
+
     return demo
 
 
 if __name__ == "__main__":
-    build_app().launch()
+    # Gradio 6: theme= and css= go in launch(), not gr.Blocks()
+    build_app().launch(theme=theme, css=CUSTOM_CSS)

@@ -29,6 +29,14 @@ class Config:
     offline: bool = _bool("TUTORDESK_OFFLINE")  # Off-the-Grid mode: local models, no Modal
     vision_model_version: str = os.getenv("TUTORDESK_VISION_MODEL", "4.5")
 
+    # --- Off-the-Grid / llama.cpp (Off-Grid + Llama Champion badges) ---
+    # Download Qwen3-4B GGUF from https://huggingface.co/Qwen/Qwen3-4B-GGUF and set this.
+    qwen_gguf_path: str = os.getenv("QWEN_GGUF_PATH", "")
+    # Number of layers to offload to GPU (-1 = all, 0 = CPU-only).
+    gguf_n_gpu_layers: int = int(os.getenv("GGUF_N_GPU_LAYERS", "-1"))
+    # HF username for dataset/model pushes
+    hf_username: str = os.getenv("HF_USERNAME", "naazimsnh02")
+
     # --- Hosting ---
     # All models are self-hosted as scale-to-zero Modal functions (no external APIs).
     # The HF Space runs only the Gradio UI and calls these by name.

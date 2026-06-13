@@ -2,7 +2,7 @@
 
 Update this as work completes. Status: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
-Last updated: 2026-06-13 (Phases 4 + 5 complete)
+Last updated: 2026-06-13 (Phases 4 + 5 + 6 complete)
 
 ---
 
@@ -65,11 +65,11 @@ Last updated: 2026-06-13 (Phases 4 + 5 complete)
 - ✅ **Exit:** Features 3 & 4 — Cohere + BFL claims satisfied
 
 ## Phase 6 — Badge layer & polish
-- ⬜ Local mode via llama.cpp (**Off the Grid + Llama Champion**)
-- ⬜ `traces/` capture + publish HF dataset (**Sharing is Caring**)
-- ⬜ Custom `gr.Server` frontend (**Off-Brand**)
-- ⬜ Field Notes blog post
-- ⬜ **Exit:** all badges claimable, app polished
+- ✅ Local mode via llama.cpp (**Off the Grid + Llama Champion**) — `models/qwen.py` `_local_llm()`, `QWEN_GGUF_PATH` + `GGUF_N_GPU_LAYERS` in config; `llama-cpp-python>=0.3` added to requirements; offline path calls `create_chat_completion` with chatml format
+- ✅ `traces/` capture + publish HF dataset (**Sharing is Caring**) — `data/export_traces.py` reads `traces/raw/agent_traces.jsonl` and pushes to `naazimsnh02/tutordesk-agent-traces`
+- ✅ Custom `gr.Theme` frontend (**Off-Brand**) — `frontend/theme.py`: saffron/green palette, Noto Sans, branded CSS; wired into `app.py` via Gradio 6 `demo.launch(theme=, css=)` API
+- ✅ Field Notes blog post — `field_notes.md` (submit to HF Field Notes)
+- ✅ **Exit:** all badges claimable, app polished
 
 ## Phase 7 — Submission
 - ⬜ Demo video (90-min → 10-min story)
@@ -89,21 +89,21 @@ Last updated: 2026-06-13 (Phases 4 + 5 complete)
 | 5 | Photo Auto-Grading (OpenBMB + Well-Tuned) | ✅ |
 
 ## Badge status
-| Badge / Award | Status |
-|---|---|
-| OpenBMB | ⬜ |
-| Modal (training) | ⬜ |
-| Cohere | ⬜ |
-| Black Forest Labs | ⬜ |
-| Best Agent | ⬜ |
-| Well-Tuned | ⬜ |
-| Tiny Titan (≤4B) | ⬜ |
-| Sharing is Caring | ⬜ |
-| Off the Grid | ⬜ |
-| Llama Champion | ⬜ |
-| Off-Brand | ⬜ |
-| Best Demo | ⬜ |
-| Field Notes | ⬜ |
+| Badge / Award | Status | Notes |
+|---|---|---|
+| OpenBMB | ✅ ready | MiniCPM-V 4.5 in Features 1 + 5 |
+| Modal (training) | ✅ ready | `finetune/train_modal.py` on A10G |
+| Cohere | ✅ ready | Tiny Aya self-hosted on Modal |
+| Black Forest Labs | ✅ ready | FLUX.1-schnell self-hosted on Modal |
+| Best Agent | ✅ ready | 5-agent weekly pack pipeline |
+| Well-Tuned | ✅ ready | `naazimsnh02/tutordesk-qwen3-4b` on HF Hub |
+| Tiny Titan (≤4B) | ✅ ready | Qwen3-4B (4B params) |
+| Sharing is Caring | ✅ ready | `data/export_traces.py` → push to HF dataset |
+| Off the Grid | ✅ ready | `TUTORDESK_OFFLINE=1` + `QWEN_GGUF_PATH` → llama.cpp |
+| Llama Champion | ✅ ready | Qwen3-4B via llama.cpp GGUF |
+| Off-Brand | ✅ ready | `frontend/theme.py` — saffron palette, Noto Sans, custom CSS |
+| Best Demo | ⬜ | Demo video needed (Phase 7) |
+| Field Notes | ✅ ready | `field_notes.md` — submit to HF Field Notes |
 
 ---
 

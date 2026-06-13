@@ -1,5 +1,5 @@
 # Core app
-gradio>=4.44
+gradio>=6.0
 python-dotenv>=1.0
 
 # Models / inference
@@ -11,6 +11,7 @@ trl>=0.10             # SFTrainer
 sentencepiece
 pillow>=10.0
 pymupdf>=1.24        # PDF rasterization (fitz)
+llama-cpp-python>=0.3  # Off-the-Grid local inference (GGUF)
 
 # Sponsors
 cohere>=5.0          # Aya / Tiny Aya (Feature 3)
