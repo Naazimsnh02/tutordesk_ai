@@ -35,7 +35,7 @@ _text_image = (
 _vision_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
-        "transformers>=4.44",
+        "transformers>=4.44,<5.0",  # MiniCPM-V custom code breaks on transformers 5.x
         "torch>=2.3",
         "accelerate>=0.33",
         "sentencepiece",
@@ -121,7 +121,12 @@ class Qwen:
 # ---------------------------------------------------------------------------
 _MINICPM_MODEL_ID = "openbmb/MiniCPM-V-4_5"
 
-@app.cls(gpu="A10G", image=_vision_image, scaledown_window=120)
+import pathlib as _pathlib
+_hf_secret = modal.Secret.from_dotenv(
+    path=str(_pathlib.Path(__file__).parent.parent)  # serving/ -> project root
+)
+
+@app.cls(gpu="A10G", image=_vision_image, scaledown_window=120, secrets=[_hf_secret])
 class MiniCPM:
     @modal.enter()
     def load(self) -> None:
@@ -131,15 +136,15 @@ class MiniCPM:
         self.tokenizer = AutoTokenizer.from_pretrained(
             _MINICPM_MODEL_ID, trust_remote_code=True
         )
-        # device_map="auto" triggers infer_auto_device_map which breaks on the
-        # custom MiniCPMV class (missing all_tied_weights_keys). Load on CPU
-        # then move to cuda manually to avoid the issue.
+        # Load without device_map to avoid transformers 5.x infer_auto_device_map
+        # breaking on the custom MiniCPMV class. Use bfloat16 + sdpa per model docs.
         self.model = AutoModel.from_pretrained(
             _MINICPM_MODEL_ID,
             trust_remote_code=True,
-            dtype=torch.float16,
-        ).to("cuda")
-        self.model.eval()
+            torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+        ).eval().cuda()
+
 
     @modal.method()
     def read_image(self, image_bytes: bytes, instruction: str) -> str:
