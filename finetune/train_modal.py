@@ -135,21 +135,23 @@ class Trainer:
 
         texts = [fmt(r) for r in records]
 
+        tokenizer.padding_side = "right"
+
         def tokenize_fn(batch):
-            out = tokenizer(
+            # No labels here — DataCollatorForLanguageModeling sets labels=input_ids
+            # and masks pad tokens with -100 when it pads each batch.
+            return tokenizer(
                 batch["text"],
                 truncation=True,
                 max_length=2048,
                 padding=False,
             )
-            out["labels"] = out["input_ids"].copy()
-            return out
 
         raw_ds = Dataset.from_dict({"text": texts})
         tokenized = raw_ds.map(tokenize_fn, batched=True, remove_columns=["text"])
         print(f"Tokenized dataset: {len(tokenized)} examples")
 
-        collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+        collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False, pad_to_multiple_of=8)
 
         # ── Training ──────────────────────────────────────────────────────────
         os.makedirs(_OUT_DIR, exist_ok=True)
