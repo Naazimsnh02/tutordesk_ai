@@ -33,7 +33,6 @@ _train_image = (
         "torch>=2.3",
         "accelerate>=0.33",
         "peft>=0.12",
-        "trl>=0.10",
         "datasets>=2.20",
         "bitsandbytes>=0.43",
         "sentencepiece",
@@ -63,9 +62,13 @@ class Trainer:
         from datasets import Dataset
         from peft import LoraConfig as PeftLoraConfig
         from peft import TaskType, get_peft_model
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        # TRL >= 0.12 puts max_seq_length / dataset_text_field in SFTConfig, not SFTTrainer.
-        from trl import SFTConfig, SFTTrainer
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoTokenizer,
+            DataCollatorForLanguageModeling,
+            Trainer,
+            TrainingArguments,
+        )
 
         # ── Load all JSONL files from the volume ──────────────────────────────
         records: list[dict] = []
@@ -113,23 +116,44 @@ class Trainer:
         model = get_peft_model(model, lora_cfg)
         model.print_trainable_parameters()
 
-        # ── Format examples with Qwen3 chat template ──────────────────────────
+        # ── Format + tokenize (bypasses TRL API churn entirely) ──────────────
         def fmt(ex: dict) -> str:
-            return tokenizer.apply_chat_template(
-                ex["messages"],
-                tokenize=False,
-                add_generation_prompt=False,
-                enable_thinking=False,
-            )
+            try:
+                return tokenizer.apply_chat_template(
+                    ex["messages"],
+                    tokenize=False,
+                    add_generation_prompt=False,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                # older tokenizer snapshot doesn't support enable_thinking
+                return tokenizer.apply_chat_template(
+                    ex["messages"],
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
 
         texts = [fmt(r) for r in records]
-        ds = Dataset.from_dict({"text": texts})
-        print(f"Dataset size after formatting: {len(ds)}")
+
+        def tokenize_fn(batch):
+            out = tokenizer(
+                batch["text"],
+                truncation=True,
+                max_length=2048,
+                padding=False,
+            )
+            out["labels"] = out["input_ids"].copy()
+            return out
+
+        raw_ds = Dataset.from_dict({"text": texts})
+        tokenized = raw_ds.map(tokenize_fn, batched=True, remove_columns=["text"])
+        print(f"Tokenized dataset: {len(tokenized)} examples")
+
+        collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
         # ── Training ──────────────────────────────────────────────────────────
-        # SFTConfig (TRL >= 0.12) merges TrainingArguments + SFT-specific fields.
         os.makedirs(_OUT_DIR, exist_ok=True)
-        sft_cfg = SFTConfig(
+        train_args = TrainingArguments(
             output_dir=_OUT_DIR,
             num_train_epochs=3,
             per_device_train_batch_size=4,
@@ -143,15 +167,13 @@ class Trainer:
             save_total_limit=1,
             report_to="none",
             dataloader_num_workers=0,
-            max_seq_length=2048,
-            dataset_text_field="text",
         )
 
-        trainer = SFTTrainer(
+        trainer = Trainer(
             model=model,
-            args=sft_cfg,
-            train_dataset=ds,
-            tokenizer=tokenizer,
+            args=train_args,
+            train_dataset=tokenized,
+            data_collator=collator,
         )
 
         print("Starting training...")
