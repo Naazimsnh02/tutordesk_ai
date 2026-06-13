@@ -206,7 +206,7 @@ def main() -> None:
 
     # ── Upload to Modal Volume ────────────────────────────────────────────────
     print("Uploading training data to Modal Volume 'tutordesk-training-data'...")
-    with vol.batch_upload() as batch:
+    with vol.batch_upload(force=True) as batch:
         for fpath in data_files:
             batch.put_file(str(fpath), fpath.name)
             size_kb = fpath.stat().st_size // 1024
