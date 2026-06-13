@@ -165,32 +165,85 @@ class MiniCPM:
 # Tiny Aya  (multilingual: South-Asian languages — Cohere claim)
 # Phase 5.
 # ---------------------------------------------------------------------------
-@app.cls(gpu="L4", image=_text_image, scaledown_window=120)
+_AYA_MODEL_ID = "CohereLabs/tiny-aya-fire"
+
+@app.cls(gpu="L4", image=_text_image, scaledown_window=120, secrets=[_hf_secret])
 class TinyAya:
     @modal.enter()
     def load(self) -> None:
-        # TODO Phase 5: load CONFIG.aya_model (CohereLabs/tiny-aya-fire)
-        raise NotImplementedError("Phase 5: load Tiny Aya")
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self.tokenizer = AutoTokenizer.from_pretrained(_AYA_MODEL_ID)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            _AYA_MODEL_ID,
+            torch_dtype=torch.float16,
+            device_map="auto",
+        ).eval()
 
     @modal.method()
     def localize(self, text: str, language: str) -> str:
-        raise NotImplementedError("Phase 5: implement Tiny Aya localization")
+        import torch
+
+        system = (
+            f"You are an expert educational translator. Translate the following "
+            f"educational content into {language}. Preserve all question numbers, "
+            f"formatting, and mathematical notation exactly. Return only the translated text."
+        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ]
+        if hasattr(self.tokenizer, "apply_chat_template"):
+            prompt = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+        else:
+            prompt = f"{system}\n\nUser: {text}\n\nAssistant:"
+
+        inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=2048,
+                temperature=0.3,
+                do_sample=True,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+        generated = outputs[0][inputs.input_ids.shape[1]:]
+        return self.tokenizer.decode(generated, skip_special_tokens=True).strip()
 
 
 # ---------------------------------------------------------------------------
 # FLUX.1-schnell  (diagram/illustration generation — BFL claim)
 # Phase 5.
 # ---------------------------------------------------------------------------
-@app.cls(gpu="A100", image=_flux_image, scaledown_window=120)
+@app.cls(gpu="A100", image=_flux_image, scaledown_window=120, secrets=[_hf_secret])
 class Flux:
     @modal.enter()
     def load(self) -> None:
-        # TODO Phase 5: load CONFIG.flux_model via diffusers
-        raise NotImplementedError("Phase 5: load FLUX")
+        import torch
+        from diffusers import FluxPipeline
+
+        self.pipe = FluxPipeline.from_pretrained(
+            "black-forest-labs/FLUX.1-schnell",
+            torch_dtype=torch.bfloat16,
+        ).to("cuda")
 
     @modal.method()
     def generate_diagram(self, prompt: str) -> bytes:
-        raise NotImplementedError("Phase 5: implement FLUX diagram generation")
+        import io
+
+        image = self.pipe(
+            prompt,
+            num_inference_steps=4,
+            guidance_scale=0.0,
+            height=512,
+            width=512,
+        ).images[0]
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------

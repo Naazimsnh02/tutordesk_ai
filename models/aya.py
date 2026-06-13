@@ -15,13 +15,16 @@ from config import CONFIG
 
 @lru_cache(maxsize=1)
 def _backend():
-    """TODO Phase 5: return Modal TinyAya handle."""
-    raise NotImplementedError("Phase 5: wire Tiny Aya backend")
+    import modal
+
+    TinyAya = modal.Cls.from_name(CONFIG.modal_app_name, "TinyAya")
+    return TinyAya()
 
 
 def localize(text: str, *, language: str) -> str:
+    """Translate `text` into `language`. Returns text unchanged if English or offline."""
     if language.lower() == "english" or not text:
         return text
     if CONFIG.offline:
-        return text  # graceful fallback: keep English when fully local
-    return _backend().localize(text, language=language)
+        return text  # graceful degradation: English-only in Off-the-Grid mode
+    return _backend().localize.remote(text, language)

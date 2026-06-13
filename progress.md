@@ -2,7 +2,7 @@
 
 Update this as work completes. Status: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
-Last updated: 2026-06-13 (Phase 4 complete)
+Last updated: 2026-06-13 (Phases 4 + 5 complete)
 
 ---
 
@@ -54,10 +54,15 @@ Last updated: 2026-06-13 (Phase 4 complete)
 - ✅ **Exit:** Feature 5 works on neat/printed sheets
 
 ## Phase 5 — Multilingual + Diagrams
-- ⬜ `serving/modal_app.py::TinyAya` (tiny-aya-fire) + language selector (Feature 3)
-- ⬜ `serving/modal_app.py::Flux` (FLUX.1-schnell) — diagrams in PDFs (Feature 4)
-- ⬜ Offline graceful fallback
-- ⬜ **Exit:** Features 3 & 4 — Cohere + BFL claims satisfied
+- ✅ `serving/modal_app.py::TinyAya` — load + localize implemented (L4, CohereLabs/tiny-aya-fire)
+- ✅ `serving/modal_app.py::Flux` — load + generate_diagram implemented (A100, FLUX.1-schnell, bfloat16, 4 steps)
+- ✅ `models/aya.py` — Modal client wired; English pass-through + offline no-op
+- ✅ `models/flux.py` — Modal client wired; None fallback on offline/error
+- ✅ `pipelines/illustrated_worksheet.py` — Qwen extracts ≤3 diagram prompts → FLUX generates → embedded in PDF; graceful text-only fallback
+- ✅ `utils/i18n.py` — UI label dictionary for English / Hindi / Tamil
+- ✅ `app.py` — Regional Language tab (Tiny Aya translator) + Illustrated Worksheets tab (FLUX pack) fully wired
+- ✅ Offline graceful fallback — Aya returns English; FLUX returns None → text-only PDF
+- ✅ **Exit:** Features 3 & 4 — Cohere + BFL claims satisfied
 
 ## Phase 6 — Badge layer & polish
 - ⬜ Local mode via llama.cpp (**Off the Grid + Llama Champion**)
@@ -79,8 +84,8 @@ Last updated: 2026-06-13 (Phase 4 complete)
 |---|---|---|
 | 1 | Worksheet-from-Textbook (OpenBMB) | ✅ |
 | 2 | Weekly Teaching Pack (Best Agent) | ✅ |
-| 3 | Regional-language (Cohere) | ⬜ |
-| 4 | Illustrated worksheets (BFL/FLUX) | ⬜ |
+| 3 | Regional-language (Cohere) | ✅ |
+| 4 | Illustrated worksheets (BFL/FLUX) | ✅ |
 | 5 | Photo Auto-Grading (OpenBMB + Well-Tuned) | ✅ |
 
 ## Badge status

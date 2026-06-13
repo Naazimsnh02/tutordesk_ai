@@ -8,7 +8,9 @@ from __future__ import annotations
 import gradio as gr
 
 from config import CONFIG
+from models.aya import localize
 from pipelines.auto_grade import grade_sheet
+from pipelines.illustrated_worksheet import build_illustrated_pack
 from pipelines.weekly_pack import build_pack
 from pipelines.worksheet_from_textbook import from_image, from_pdf
 
@@ -163,6 +165,76 @@ def run_auto_grade(
 
     pdf_path = result.to_pdf()
     return result.summary_markdown(), result.parent_note, pdf_path
+
+
+# ---------------------------------------------------------------------------
+# Feature 3 — Regional Language (Tiny Aya)
+# ---------------------------------------------------------------------------
+
+_LANG_CHOICES_NON_EN = [l for l in CONFIG.languages if l.lower() != "english"]
+
+
+def run_localize(content: str, language: str) -> tuple[str, str | None]:
+    """Translate `content` to `language` via Tiny Aya. Returns (localized_text, pdf_path)."""
+    if not content.strip():
+        return "Please paste some content to translate.", None
+    if language.lower() == "english":
+        return content, None
+    try:
+        localized = localize(content, language=language)
+    except NotImplementedError as exc:
+        return str(exc), None
+
+    from utils.pdf import to_pdf as _to_pdf
+    pdf_path = _to_pdf(
+        title=f"TutorDesk AI — {language} Output",
+        subtitle="Translated by Tiny Aya (CohereLabs/tiny-aya-fire)",
+        body=localized,
+    )
+    return localized, pdf_path
+
+
+# ---------------------------------------------------------------------------
+# Feature 4 — Illustrated Worksheets (FLUX.1-schnell)
+# ---------------------------------------------------------------------------
+
+def run_illustrated_pack(
+    grade: str,
+    subject: str,
+    chapter_text: str,
+    question_count: int,
+    difficulty: str,
+    language: str,
+) -> tuple[str, str, str, str, str, str, str]:
+    """Returns (worksheet, homework, quiz, key, note, diagram_status, pdf_path)."""
+    if not chapter_text.strip():
+        msg = "Please enter chapter text."
+        return msg, "", "", "", "", "", None
+
+    result = build_illustrated_pack(
+        chapter_text,
+        grade=int(grade),
+        subject=subject,
+        question_count=int(question_count),
+        diff=difficulty,
+        language=language,
+    )
+    pack = result.pack
+    n = result.diagram_count
+    diagram_status = (
+        f"{n} diagram(s) generated and embedded in PDF."
+        if n > 0
+        else "No diagrams generated (FLUX unavailable or offline — text-only PDF)."
+    )
+    return (
+        pack.worksheet,
+        pack.homework,
+        pack.quiz,
+        pack.answer_key,
+        pack.parent_note,
+        diagram_status,
+        result.pdf_path,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -334,15 +406,90 @@ def build_app() -> gr.Blocks:
             # ── Feature 3: Regional Language (Phase 5) ───────────────────
             with gr.Tab("Regional Language"):
                 gr.Markdown(
-                    "**Coming in Phase 5** — Regenerate any output in Hindi, Tamil, Telugu, "
-                    "Bengali, Gujarati, or Marathi using Tiny Aya (CohereLabs)."
+                    "Translate any teaching content into your regional language using "
+                    "**Tiny Aya** (CohereLabs/tiny-aya-fire, 3.35B, South-Asian-tuned). "
+                    "Paste output from any other tab, choose a language, and download."
+                )
+                rl_language = gr.Dropdown(
+                    _LANG_CHOICES_NON_EN,
+                    value=_LANG_CHOICES_NON_EN[0] if _LANG_CHOICES_NON_EN else "Hindi",
+                    label="Target Language",
+                )
+                rl_content = gr.Textbox(
+                    label="Content to Translate",
+                    placeholder="Paste worksheet, quiz, parent note, or any teaching content here…",
+                    lines=12,
+                )
+                rl_btn = gr.Button("Translate with Tiny Aya", variant="primary")
+                rl_out = gr.Textbox(label="Translated Output", lines=12, interactive=False)
+                rl_pdf = gr.File(label="Download Translated PDF")
+
+                rl_btn.click(
+                    fn=run_localize,
+                    inputs=[rl_content, rl_language],
+                    outputs=[rl_out, rl_pdf],
                 )
 
             # ── Feature 4: Illustrated Worksheets (Phase 5) ──────────────
             with gr.Tab("Illustrated Worksheets"):
                 gr.Markdown(
-                    "**Coming in Phase 5** — Auto-generate labeled diagrams and figures "
-                    "embedded in your worksheet PDF using FLUX (Black Forest Labs)."
+                    "Generate a full teaching pack **with labeled diagrams** embedded in the PDF. "
+                    "Qwen3-4B identifies concepts that benefit from a diagram; "
+                    "**FLUX.1-schnell** (Black Forest Labs) generates them."
+                )
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        il_grade = gr.Dropdown(
+                            _class_choices(), value="8", label="Class"
+                        )
+                        il_subject = gr.Dropdown(
+                            _subject_choices(), value="Science", label="Subject"
+                        )
+                        il_language = gr.Dropdown(
+                            _lang_choices(), value="English", label="Language"
+                        )
+                        il_question_count = gr.Slider(
+                            5, 30, value=20, step=5, label="Number of Questions"
+                        )
+                        il_difficulty = gr.Radio(
+                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty"
+                        )
+                    with gr.Column(scale=2):
+                        il_chapter_text = gr.Textbox(
+                            label="Chapter Content",
+                            placeholder="Paste chapter text here…",
+                            lines=10,
+                        )
+
+                il_btn = gr.Button("Generate Illustrated Pack", variant="primary")
+                il_diagram_status = gr.Textbox(
+                    label="Diagram Status", interactive=False, lines=1
+                )
+
+                with gr.Tabs():
+                    with gr.Tab("Worksheet"):
+                        il_worksheet = gr.Markdown(label="Worksheet")
+                    with gr.Tab("Homework"):
+                        il_homework = gr.Markdown(label="Homework")
+                    with gr.Tab("Quiz"):
+                        il_quiz = gr.Markdown(label="Quiz")
+                    with gr.Tab("Answer Key"):
+                        il_key = gr.Markdown(label="Answer Key")
+                    with gr.Tab("Parent Note"):
+                        il_note = gr.Markdown(label="Parent Note")
+
+                il_pdf = gr.File(label="Download Illustrated PDF (diagrams embedded)")
+
+                il_btn.click(
+                    fn=run_illustrated_pack,
+                    inputs=[
+                        il_grade, il_subject, il_chapter_text,
+                        il_question_count, il_difficulty, il_language,
+                    ],
+                    outputs=[
+                        il_worksheet, il_homework, il_quiz,
+                        il_key, il_note, il_diagram_status, il_pdf,
+                    ],
                 )
 
     return demo
