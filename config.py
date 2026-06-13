@@ -21,6 +21,7 @@ def _bool(name: str, default: bool = False) -> bool:
 class Config:
     # --- Secrets ---
     hf_token: str = os.getenv("HF_TOKEN", "")
+    hf_username: str = os.getenv("HF_USERNAME", "")
     cohere_api_key: str = os.getenv("COHERE_API_KEY", "")  # fallback only, if Cohere award needs API
     bfl_api_key: str = os.getenv("BFL_API_KEY", "")  # fallback only
 
@@ -35,7 +36,8 @@ class Config:
 
     # --- Model IDs (all open-weight, self-hosted on Modal) ---
     qwen_base_model: str = "Qwen/Qwen3-4B"
-    qwen_finetuned_model: str = "TODO/tutordesk-qwen3-4b"  # set after Phase 3 publish
+    # After Phase 3: set QWEN_FINETUNED_MODEL in .env; serving/modal_app.py reads it.
+    qwen_finetuned_model: str = os.getenv("QWEN_FINETUNED_MODEL", "Qwen/Qwen3-4B")
     minicpm_model_45: str = "openbmb/MiniCPM-V-4_5"  # 8B, accurate default
     minicpm_model_46: str = "openbmb/MiniCPM-V-4.6"  # 1.3B, lightweight fallback
     aya_model: str = "CohereLabs/tiny-aya-fire"  # 3.35B, South-Asian-tuned (Cohere claim)

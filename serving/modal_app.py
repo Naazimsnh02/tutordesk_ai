@@ -59,7 +59,9 @@ _flux_image = (
 # Qwen3-4B  (text generation + Indian-style grading)
 # Phase 1: base model. Phase 3: swap MODEL_ID to CONFIG.qwen_finetuned_model.
 # ---------------------------------------------------------------------------
-_QWEN_MODEL_ID = _QWEN_BASE_MODEL  # change to finetuned HF repo path after Phase 3
+import os as _os
+# After Phase 3: set QWEN_FINETUNED_MODEL in .env / Modal secret to switch to the fine-tune.
+_QWEN_MODEL_ID = _os.environ.get("QWEN_FINETUNED_MODEL", _QWEN_BASE_MODEL)
 
 @app.cls(gpu="A10G", image=_text_image, scaledown_window=120)
 class Qwen:

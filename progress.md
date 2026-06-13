@@ -35,14 +35,17 @@ Last updated: 2026-06-13
 - ✅ **Exit:** Feature 1 — chapter photo → worksheet+quiz+key
 
 ## Phase 3 — Dataset + fine-tune on Modal
-- ⬜ Verify NCERT_Dataset subject coverage (KadamParth collection)
-- ⬜ `data/prep_generation.py` — NCERT → ChatML (objective ①)
-- ⬜ `data/prep_difficulty.py` — difficulty labels (objective ②)
-- ⬜ `data/prep_grading.py` — synthesized marking/grading triples (objective ③)
-- ⬜ `finetune/train_modal.py` — LoRA SFT on Modal + GGUF export
+- ✅ `data/prep_generation.py` — NCERT → ChatML (objective ①, ~3k examples)
+- ✅ `data/prep_difficulty.py` — difficulty labels (objective ②, ~1k examples)
+- ✅ `data/prep_grading.py` — grading triples via Qwen starmap (objective ③, ~600 examples)
+- ✅ `finetune/train_modal.py` — LoRA SFT on Modal A10G, push to HF Hub
+- ✅ `serving/modal_app.py` — reads QWEN_FINETUNED_MODEL env var to swap fine-tune in
+- ⬜ Run data prep: `python -m data.prep_generation && python -m data.prep_difficulty && python -m data.prep_grading`
+- ⬜ Set HF_USERNAME in .env
+- ⬜ Run training: `modal run finetune/train_modal.py`
 - ⬜ Publish fine-tuned Qwen3-4B to HF Hub (**Well-Tuned**)
-- ⬜ Swap fine-tune into pipelines
-- ⬜ **Exit:** model published, ~6–8k examples trained
+- ⬜ Set QWEN_FINETUNED_MODEL in .env + redeploy Modal
+- ⬜ **Exit:** model published, ~4.6k examples trained
 
 ## Phase 4 — Photo Auto-Grading (Feature 5)
 - ⬜ `pipelines/auto_grade.py` — MiniCPM-V read → Qwen3-4B grade → marks+feedback+parent note
