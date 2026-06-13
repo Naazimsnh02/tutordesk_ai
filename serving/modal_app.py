@@ -32,6 +32,18 @@ _text_image = (
     )
 )
 
+_vision_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "transformers>=4.44",
+        "torch>=2.3",
+        "accelerate>=0.33",
+        "sentencepiece",
+        "Pillow>=10.0",
+        "timm",
+    )
+)
+
 _flux_image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -98,16 +110,37 @@ class Qwen:
 # MiniCPM-V  (vision: textbook + answer-sheet reading)
 # Phase 2.
 # ---------------------------------------------------------------------------
-@app.cls(gpu="A10G", image=_text_image, scaledown_window=120)
+_MINICPM_MODEL_ID = "openbmb/MiniCPM-V-4_5"
+
+@app.cls(gpu="A10G", image=_vision_image, scaledown_window=120)
 class MiniCPM:
     @modal.enter()
     def load(self) -> None:
-        # TODO Phase 2: load CONFIG.minicpm_model via transformers (trust_remote_code=True)
-        raise NotImplementedError("Phase 2: load MiniCPM-V")
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            _MINICPM_MODEL_ID, trust_remote_code=True
+        )
+        self.model = AutoModel.from_pretrained(
+            _MINICPM_MODEL_ID,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,
+            device_map="auto",
+        )
+        self.model.eval()
 
     @modal.method()
     def read_image(self, image_bytes: bytes, instruction: str) -> str:
-        raise NotImplementedError("Phase 2: implement MiniCPM-V inference")
+        import io
+        import torch
+        from PIL import Image
+
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        msgs = [{"role": "user", "content": [image, instruction]}]
+        with torch.no_grad():
+            result = self.model.chat(image=None, msgs=msgs, tokenizer=self.tokenizer)
+        return result
 
 
 # ---------------------------------------------------------------------------

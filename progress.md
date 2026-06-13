@@ -26,9 +26,12 @@ Last updated: 2026-06-13
 - ✅ **Exit:** Feature 2 end-to-end live (Modal → Gradio → PDF download)
 
 ## Phase 2 — Vision (Feature 1)
-- ⬜ `models/minicpm.py` — MiniCPM-V 4.5 (+ 4.6 fallback flag)
-- ⬜ `pipelines/worksheet_from_textbook.py`
-- ⬜ `utils/image.py` — PDF rasterization / preprocessing
+- ✅ `models/minicpm.py` — MiniCPM-V 4.5 Modal client (+ offline guard)
+- ✅ `pipelines/worksheet_from_textbook.py` — photo/PDF → MiniCPM extract → weekly_pack
+- ✅ `utils/image.py` — PDF rasterization via PyMuPDF
+- ✅ `serving/modal_app.py::MiniCPM` — load + read_image implemented (A10G, trust_remote_code)
+- ✅ `app.py` — Worksheet-from-Textbook tab fully wired (photo + PDF upload)
+- ⬜ Deploy: `modal deploy serving/modal_app.py` and smoke-test with a textbook photo
 - ⬜ **Exit:** Feature 1 — chapter photo → worksheet+quiz+key
 
 ## Phase 3 — Dataset + fine-tune on Modal

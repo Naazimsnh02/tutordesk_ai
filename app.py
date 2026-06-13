@@ -9,6 +9,7 @@ import gradio as gr
 
 from config import CONFIG
 from pipelines.weekly_pack import build_pack
+from pipelines.worksheet_from_textbook import from_image, from_pdf
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +54,59 @@ def run_weekly_pack(
         language=language,
     )
     pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter=chapter_text[:60])
+    return (
+        pack.worksheet,
+        pack.homework,
+        pack.quiz,
+        pack.answer_key,
+        pack.parent_note,
+        pdf_path,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Feature 1 — Worksheet-from-Textbook
+# ---------------------------------------------------------------------------
+
+def run_from_textbook(
+    photo,
+    pdf_file,
+    grade: str,
+    subject: str,
+    question_count: int,
+    difficulty: str,
+    language: str,
+) -> tuple[str, str, str, str, str, str]:
+    """Called by the Gradio button. Accepts either a photo (PIL) or a PDF file path."""
+    if photo is None and pdf_file is None:
+        msg = "Please upload a textbook photo or PDF."
+        return msg, "", "", "", "", None
+
+    try:
+        if photo is not None:
+            from PIL import Image as PILImage
+            img = PILImage.fromarray(photo) if not hasattr(photo, "save") else photo
+            pack = from_image(
+                img,
+                grade=int(grade),
+                subject=subject,
+                question_count=int(question_count),
+                diff=difficulty,
+                language=language,
+            )
+        else:
+            pack = from_pdf(
+                pdf_file,
+                grade=int(grade),
+                subject=subject,
+                question_count=int(question_count),
+                diff=difficulty,
+                language=language,
+            )
+    except NotImplementedError as exc:
+        return str(exc), "", "", "", "", None
+
+    pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter="Textbook upload")
     return (
         pack.worksheet,
         pack.homework,
@@ -128,11 +182,62 @@ def build_app() -> gr.Blocks:
                     outputs=[worksheet_out, homework_out, quiz_out, key_out, note_out, pdf_out],
                 )
 
-            # ── Feature 1: Worksheet-from-Textbook (Phase 2) ─────────────
+            # ── Feature 1: Worksheet-from-Textbook ───────────────────────
             with gr.Tab("Worksheet from Textbook"):
                 gr.Markdown(
-                    "**Coming in Phase 2** — Upload a chapter photo or PDF and let "
-                    "MiniCPM-V (OpenBMB) read it, then auto-generate your teaching pack."
+                    "Photograph a textbook chapter or upload a PDF — "
+                    "MiniCPM-V (OpenBMB) reads it and auto-generates your full teaching pack."
+                )
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        tb_grade = gr.Dropdown(
+                            _class_choices(), value="8", label="Class"
+                        )
+                        tb_subject = gr.Dropdown(
+                            _subject_choices(), value="Science", label="Subject"
+                        )
+                        tb_language = gr.Dropdown(
+                            _lang_choices(), value="English", label="Language"
+                        )
+                        tb_question_count = gr.Slider(
+                            5, 30, value=20, step=5, label="Number of Questions"
+                        )
+                        tb_difficulty = gr.Radio(
+                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty"
+                        )
+                    with gr.Column(scale=2):
+                        tb_photo = gr.Image(
+                            label="Textbook Photo (camera or upload)",
+                            type="pil",
+                        )
+                        tb_pdf = gr.File(
+                            label="Or upload a PDF",
+                            file_types=[".pdf"],
+                        )
+
+                tb_btn = gr.Button("Extract & Generate Teaching Pack", variant="primary")
+
+                with gr.Tabs():
+                    with gr.Tab("Worksheet"):
+                        tb_worksheet = gr.Textbox(label="Worksheet", lines=15)
+                    with gr.Tab("Homework"):
+                        tb_homework = gr.Textbox(label="Homework", lines=10)
+                    with gr.Tab("Quiz"):
+                        tb_quiz = gr.Textbox(label="Quiz", lines=10)
+                    with gr.Tab("Answer Key"):
+                        tb_key = gr.Textbox(label="Answer Key", lines=15)
+                    with gr.Tab("Parent Note"):
+                        tb_note = gr.Textbox(label="Parent Note Template", lines=6)
+
+                tb_pdf_out = gr.File(label="Download PDF (all sections)")
+
+                tb_btn.click(
+                    fn=run_from_textbook,
+                    inputs=[
+                        tb_photo, tb_pdf,
+                        tb_grade, tb_subject, tb_question_count, tb_difficulty, tb_language,
+                    ],
+                    outputs=[tb_worksheet, tb_homework, tb_quiz, tb_key, tb_note, tb_pdf_out],
                 )
 
             # ── Feature 5: Photo Auto-Grading (Phase 4) ──────────────────

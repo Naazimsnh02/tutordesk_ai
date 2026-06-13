@@ -1,10 +1,12 @@
 """MiniCPM-V client — reads textbook pages & answer sheets (OpenBMB).
 
-Cloud mode: calls the Modal `MiniCPM` function. Offline: loads locally (llama.cpp/transformers).
-Version selected by CONFIG.minicpm_model (4.5 default, 4.6 lightweight fallback).
+Cloud mode: calls the Modal `MiniCPM` function.
+Offline: raises NotImplementedError (MiniCPM-V is too large for most laptops; Off-Grid
+         uses text-only flow instead — callers must handle the fallback).
 """
 from __future__ import annotations
 
+import io
 from functools import lru_cache
 
 from PIL import Image
@@ -13,14 +15,24 @@ from config import CONFIG
 
 
 @lru_cache(maxsize=1)
-def _backend():
-    """TODO Phase 2: return Modal MiniCPM handle (or local loader if CONFIG.offline)."""
-    raise NotImplementedError("Phase 2: wire MiniCPM-V backend")
+def _remote_handle():
+    import modal
+
+    MiniCPM = modal.Cls.from_name(CONFIG.modal_app_name, "MiniCPM")
+    return MiniCPM()
 
 
 def read_image(image: Image.Image, instruction: str) -> str:
-    """Run a vision instruction over an image.
+    """Run a vision instruction over a PIL image and return the model response.
 
-    Used by worksheet_from_textbook (chapter) and auto_grade (answer sheet).
+    Used by worksheet_from_textbook (chapter extraction) and auto_grade (answer sheet).
+    Serialises the image to PNG bytes for the Modal RPC boundary.
     """
-    return _backend().read_image(image, instruction)
+    if CONFIG.offline:
+        raise NotImplementedError(
+            "MiniCPM-V is not available in offline mode. "
+            "Use the Weekly Teaching Pack tab and paste chapter text manually."
+        )
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return _remote_handle().read_image.remote(buf.getvalue(), instruction)
