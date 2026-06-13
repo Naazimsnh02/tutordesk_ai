@@ -8,6 +8,7 @@ from __future__ import annotations
 import gradio as gr
 
 from config import CONFIG
+from pipelines.auto_grade import grade_sheet
 from pipelines.weekly_pack import build_pack
 from pipelines.worksheet_from_textbook import from_image, from_pdf
 
@@ -115,6 +116,53 @@ def run_from_textbook(
         pack.parent_note,
         pdf_path,
     )
+
+
+# ---------------------------------------------------------------------------
+# Feature 5 — Photo Auto-Grading
+# ---------------------------------------------------------------------------
+
+_SCHEME_PLACEHOLDER = (
+    "Q1 [3 marks]: Model answer for question 1\n"
+    "Q2 [5 marks]:\n"
+    "  Step 1 (1 mark): First step expected\n"
+    "  Step 2 (2 marks): Second step expected\n"
+    "  Step 3 (2 marks): Final answer expected\n"
+    "Q3 [2 marks]: Model answer for question 3"
+)
+
+
+def run_auto_grade(
+    photo,
+    marking_scheme: str,
+    student_name: str,
+    grade: str,
+    subject: str,
+) -> tuple[str, str, str | None]:
+    """Called by the Gradio button. Returns (grade_summary_md, parent_note, pdf_path)."""
+    if photo is None:
+        return "Please upload a photo of the student's answer sheet.", "", None
+    if not marking_scheme.strip():
+        return "Please enter the marking scheme using the Q[N marks] template.", "", None
+
+    from PIL import Image as PILImage
+
+    img = PILImage.fromarray(photo) if not hasattr(photo, "save") else photo
+    student = student_name.strip() or "Student"
+
+    try:
+        result = grade_sheet(
+            img,
+            marking_scheme=marking_scheme,
+            grade=int(grade),
+            subject=subject,
+            student=student,
+        )
+    except NotImplementedError as exc:
+        return str(exc), "", None
+
+    pdf_path = result.to_pdf()
+    return result.summary_markdown(), result.parent_note, pdf_path
 
 
 # ---------------------------------------------------------------------------
@@ -243,9 +291,44 @@ def build_app() -> gr.Blocks:
             # ── Feature 5: Photo Auto-Grading (Phase 4) ──────────────────
             with gr.Tab("Photo Auto-Grading"):
                 gr.Markdown(
-                    "**Coming in Phase 4** — Photograph a student's filled answer sheet. "
-                    "MiniCPM-V reads the answers; the fine-tuned Qwen3-4B grades them "
-                    "Indian-style (step marks, partial credit)."
+                    "Photograph a student's filled answer sheet. "
+                    "MiniCPM-V (OpenBMB) reads the answers; the fine-tuned Qwen3-4B grades them "
+                    "Indian-style — step marks, partial credit, CBSE conventions."
+                )
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        ag_grade = gr.Dropdown(
+                            _class_choices(), value="8", label="Class"
+                        )
+                        ag_subject = gr.Dropdown(
+                            _subject_choices(), value="Science", label="Subject"
+                        )
+                        ag_student = gr.Textbox(
+                            label="Student Name", placeholder="e.g. Priya Sharma"
+                        )
+                    with gr.Column(scale=2):
+                        ag_photo = gr.Image(
+                            label="Answer Sheet Photo (camera or upload)",
+                            type="pil",
+                        )
+
+                ag_scheme = gr.Textbox(
+                    label="Marking Scheme",
+                    placeholder=_SCHEME_PLACEHOLDER,
+                    lines=8,
+                    info="Use Q<n> [<marks> marks]: format. One line per question minimum.",
+                )
+
+                ag_btn = gr.Button("Grade Answer Sheet", variant="primary")
+
+                ag_summary = gr.Markdown(label="Grade Summary")
+                ag_note = gr.Textbox(label="Parent Note", lines=4, interactive=False)
+                ag_pdf = gr.File(label="Download Grade Report (PDF)")
+
+                ag_btn.click(
+                    fn=run_auto_grade,
+                    inputs=[ag_photo, ag_scheme, ag_student, ag_grade, ag_subject],
+                    outputs=[ag_summary, ag_note, ag_pdf],
                 )
 
             # ── Feature 3: Regional Language (Phase 5) ───────────────────

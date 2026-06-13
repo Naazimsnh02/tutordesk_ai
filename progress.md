@@ -2,7 +2,7 @@
 
 Update this as work completes. Status: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
-Last updated: 2026-06-13
+Last updated: 2026-06-13 (Phase 4 complete)
 
 ---
 
@@ -44,12 +44,14 @@ Last updated: 2026-06-13
 - ✅ Run training: `modal run finetune/train_modal.py` (A10G, 3 epochs, ~4.6k examples)
 - ✅ Publish fine-tuned Qwen3-4B to HF Hub (**Well-Tuned**) → naazimsnh02/tutordesk-qwen3-4b
 - ✅ Professional model card pushed to HF Hub
-- ⬜ Set QWEN_FINETUNED_MODEL=naazimsnh02/tutordesk-qwen3-4b in .env + redeploy Modal
-- ⬜ **Exit:** model live in serving pipeline
+- ✅ Set QWEN_FINETUNED_MODEL=naazimsnh02/tutordesk-qwen3-4b in .env + redeploy Modal
+- ✅ **Exit:** model live in serving pipeline
 
 ## Phase 4 — Photo Auto-Grading (Feature 5)
-- ⬜ `pipelines/auto_grade.py` — MiniCPM-V read → Qwen3-4B grade → marks+feedback+parent note
-- ⬜ **Exit:** Feature 5 works on neat/printed sheets
+- ✅ `agents/grader.py` — structured MARKS: X/Y output contract, `extract_score()`, `parse_scheme()` (regex + Qwen fallback)
+- ✅ `pipelines/auto_grade.py` — multi-question loop: MiniCPM-V extract → per-Q Qwen grading → `GradeResult` with summary, markdown table, PDF
+- ✅ `app.py` — Photo Auto-Grading tab fully wired (photo upload, marking scheme textbox, student name, grade/subject selectors, PDF download)
+- ✅ **Exit:** Feature 5 works on neat/printed sheets
 
 ## Phase 5 — Multilingual + Diagrams
 - ⬜ `serving/modal_app.py::TinyAya` (tiny-aya-fire) + language selector (Feature 3)
@@ -79,7 +81,7 @@ Last updated: 2026-06-13
 | 2 | Weekly Teaching Pack (Best Agent) | ✅ |
 | 3 | Regional-language (Cohere) | ⬜ |
 | 4 | Illustrated worksheets (BFL/FLUX) | ⬜ |
-| 5 | Photo Auto-Grading (OpenBMB + Well-Tuned) | ⬜ |
+| 5 | Photo Auto-Grading (OpenBMB + Well-Tuned) | ✅ |
 
 ## Badge status
 | Badge / Award | Status |
