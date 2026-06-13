@@ -63,8 +63,9 @@ class Trainer:
         from datasets import Dataset
         from peft import LoraConfig as PeftLoraConfig
         from peft import TaskType, get_peft_model
-        from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
-        from trl import SFTTrainer
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        # TRL >= 0.12 puts max_seq_length / dataset_text_field in SFTConfig, not SFTTrainer.
+        from trl import SFTConfig, SFTTrainer
 
         # ── Load all JSONL files from the volume ──────────────────────────────
         records: list[dict] = []
@@ -95,7 +96,7 @@ class Trainer:
 
         model = AutoModelForCausalLM.from_pretrained(
             _BASE_MODEL,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
             device_map="auto",
         )
         model.enable_input_require_grads()
@@ -126,8 +127,9 @@ class Trainer:
         print(f"Dataset size after formatting: {len(ds)}")
 
         # ── Training ──────────────────────────────────────────────────────────
+        # SFTConfig (TRL >= 0.12) merges TrainingArguments + SFT-specific fields.
         os.makedirs(_OUT_DIR, exist_ok=True)
-        args = TrainingArguments(
+        sft_cfg = SFTConfig(
             output_dir=_OUT_DIR,
             num_train_epochs=3,
             per_device_train_batch_size=4,
@@ -141,14 +143,14 @@ class Trainer:
             save_total_limit=1,
             report_to="none",
             dataloader_num_workers=0,
+            max_seq_length=2048,
+            dataset_text_field="text",
         )
 
         trainer = SFTTrainer(
             model=model,
-            args=args,
+            args=sft_cfg,
             train_dataset=ds,
-            dataset_text_field="text",
-            max_seq_length=2048,
             tokenizer=tokenizer,
         )
 
