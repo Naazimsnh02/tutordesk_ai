@@ -164,15 +164,15 @@ def build_app() -> gr.Blocks:
 
                 with gr.Tabs():
                     with gr.Tab("Worksheet"):
-                        worksheet_out = gr.Textbox(label="Worksheet", lines=15)
+                        worksheet_out = gr.Markdown(label="Worksheet")
                     with gr.Tab("Homework"):
-                        homework_out = gr.Textbox(label="Homework", lines=10)
+                        homework_out = gr.Markdown(label="Homework")
                     with gr.Tab("Quiz"):
-                        quiz_out = gr.Textbox(label="Quiz", lines=10)
+                        quiz_out = gr.Markdown(label="Quiz")
                     with gr.Tab("Answer Key"):
-                        key_out = gr.Textbox(label="Answer Key", lines=15)
+                        key_out = gr.Markdown(label="Answer Key")
                     with gr.Tab("Parent Note"):
-                        note_out = gr.Textbox(label="Parent Note Template", lines=6)
+                        note_out = gr.Markdown(label="Parent Note Template")
 
                 pdf_out = gr.File(label="Download PDF (all sections)")
 
@@ -219,15 +219,15 @@ def build_app() -> gr.Blocks:
 
                 with gr.Tabs():
                     with gr.Tab("Worksheet"):
-                        tb_worksheet = gr.Textbox(label="Worksheet", lines=15)
+                        tb_worksheet = gr.Markdown(label="Worksheet")
                     with gr.Tab("Homework"):
-                        tb_homework = gr.Textbox(label="Homework", lines=10)
+                        tb_homework = gr.Markdown(label="Homework")
                     with gr.Tab("Quiz"):
-                        tb_quiz = gr.Textbox(label="Quiz", lines=10)
+                        tb_quiz = gr.Markdown(label="Quiz")
                     with gr.Tab("Answer Key"):
-                        tb_key = gr.Textbox(label="Answer Key", lines=15)
+                        tb_key = gr.Markdown(label="Answer Key")
                     with gr.Tab("Parent Note"):
-                        tb_note = gr.Textbox(label="Parent Note Template", lines=6)
+                        tb_note = gr.Markdown(label="Parent Note Template")
 
                 tb_pdf_out = gr.File(label="Download PDF (all sections)")
 

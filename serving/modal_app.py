@@ -71,7 +71,7 @@ class Qwen:
         self.tokenizer = AutoTokenizer.from_pretrained(_QWEN_MODEL_ID)
         self.model = AutoModelForCausalLM.from_pretrained(
             _QWEN_MODEL_ID,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
             device_map="auto",
         )
         self.model.eval()
@@ -84,14 +84,20 @@ class Qwen:
         max_new_tokens: int = 1024,
         temperature: float = 0.7,
     ) -> str:
+        import re
         import torch
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        # enable_thinking=False suppresses the <think> chain-of-thought block;
+        # the regex below is a belt-and-suspenders fallback for older checkpoints.
         text = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
         )
         inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
         with torch.no_grad():
@@ -103,7 +109,10 @@ class Qwen:
                 pad_token_id=self.tokenizer.eos_token_id,
             )
         generated = outputs[0][inputs.input_ids.shape[1]:]
-        return self.tokenizer.decode(generated, skip_special_tokens=True).strip()
+        raw = self.tokenizer.decode(generated, skip_special_tokens=True)
+        # Strip any residual <think>…</think> blocks the model still emits
+        clean = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+        return clean.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -122,12 +131,14 @@ class MiniCPM:
         self.tokenizer = AutoTokenizer.from_pretrained(
             _MINICPM_MODEL_ID, trust_remote_code=True
         )
+        # device_map="auto" triggers infer_auto_device_map which breaks on the
+        # custom MiniCPMV class (missing all_tied_weights_keys). Load on CPU
+        # then move to cuda manually to avoid the issue.
         self.model = AutoModel.from_pretrained(
             _MINICPM_MODEL_ID,
             trust_remote_code=True,
-            torch_dtype=torch.float16,
-            device_map="auto",
-        )
+            dtype=torch.float16,
+        ).to("cuda")
         self.model.eval()
 
     @modal.method()
