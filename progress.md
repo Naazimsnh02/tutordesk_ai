@@ -40,12 +40,12 @@ Last updated: 2026-06-13
 - ✅ `data/prep_grading.py` — grading triples via Qwen starmap (objective ③, ~600 examples)
 - ✅ `finetune/train_modal.py` — LoRA SFT on Modal A10G, push to HF Hub
 - ✅ `serving/modal_app.py` — reads QWEN_FINETUNED_MODEL env var to swap fine-tune in
-- ⬜ Run data prep: `python -m data.prep_generation && python -m data.prep_difficulty && python -m data.prep_grading`
-- ⬜ Set HF_USERNAME in .env
-- ⬜ Run training: `modal run finetune/train_modal.py`
-- ⬜ Publish fine-tuned Qwen3-4B to HF Hub (**Well-Tuned**)
-- ⬜ Set QWEN_FINETUNED_MODEL in .env + redeploy Modal
-- ⬜ **Exit:** model published, ~4.6k examples trained
+- ✅ Run data prep: 3k generation + 1k difficulty + 600 grading examples
+- ✅ Run training: `modal run finetune/train_modal.py` (A10G, 3 epochs, ~4.6k examples)
+- ✅ Publish fine-tuned Qwen3-4B to HF Hub (**Well-Tuned**) → naazimsnh02/tutordesk-qwen3-4b
+- ✅ Professional model card pushed to HF Hub
+- ⬜ Set QWEN_FINETUNED_MODEL=naazimsnh02/tutordesk-qwen3-4b in .env + redeploy Modal
+- ⬜ **Exit:** model live in serving pipeline
 
 ## Phase 4 — Photo Auto-Grading (Feature 5)
 - ⬜ `pipelines/auto_grade.py` — MiniCPM-V read → Qwen3-4B grade → marks+feedback+parent note
