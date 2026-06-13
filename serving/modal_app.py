@@ -1,51 +1,155 @@
-"""Modal app — one scale-to-zero GPU function per model.
+"""Modal app — scale-to-zero GPU functions, one per model.
 
-Deploy:  modal deploy serving/modal_app.py
-Then the Space/clients call functions by name via `modal.Function.from_name`.
+Deploy:   modal deploy serving/modal_app.py
+Test:     modal run   serving/modal_app.py
 
-Design notes:
-- Each model is its own function so they don't share a container (avoids OOM) and each
-  idles to zero between calls (credit-efficient).
-- `@modal.enter()` loads weights once per warm container.
-- GPU sizing: 8B/4B/3.35B text+vision fit on an A10G/L4; FLUX prefers A100/L40S.
-- Weights are baked into the image (or cached on a Volume) so cold starts stay fast.
+Each model lives in its own class so they never share a container (avoids OOM)
+and each idles to zero between calls (credit-efficient).
 
-Param budget (self-hosted, all open-weight): MiniCPM-V 8B + Qwen3-4B + FLUX ~12B +
-Tiny-Aya 3.35B ≈ 27B total (< 32B cap).
+Param budget (per-model cap, each well under 32B):
+  Qwen3-4B       ~4B   A10G
+  MiniCPM-V 4.5  ~8B   A10G
+  tiny-aya-fire  ~3B   L4
+  FLUX.1-schnell ~12B  A100
 """
 from __future__ import annotations
 
-# import modal
-from config import CONFIG
+import modal
 
-# app = modal.App(CONFIG.modal_app_name)
-#
-# text_image = modal.Image.debian_slim().pip_install(
-#     "transformers", "torch", "accelerate", "peft", "sentencepiece"
-# )
-# flux_image = modal.Image.debian_slim().pip_install("diffusers", "torch", "transformers")
+_MODAL_APP_NAME = "tutordesk-ai"
+_QWEN_BASE_MODEL = "Qwen/Qwen3-4B"
+
+app = modal.App(_MODAL_APP_NAME)
+
+_text_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "transformers>=4.44",
+        "torch>=2.3",
+        "accelerate>=0.33",
+        "sentencepiece",
+        "Pillow>=10.0",
+    )
+)
+
+_flux_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "diffusers>=0.30",
+        "torch>=2.3",
+        "transformers>=4.44",
+        "Pillow>=10.0",
+    )
+)
 
 
-# --- Vision: MiniCPM-V (OpenBMB) -------------------------------------------------
-# @app.cls(gpu="A10G", image=text_image, scaledown_window=120)
-class MiniCPM:
-    """TODO Phase 2: load CONFIG.minicpm_model in @modal.enter(); expose read_image()."""
+# ---------------------------------------------------------------------------
+# Qwen3-4B  (text generation + Indian-style grading)
+# Phase 1: base model. Phase 3: swap MODEL_ID to CONFIG.qwen_finetuned_model.
+# ---------------------------------------------------------------------------
+_QWEN_MODEL_ID = _QWEN_BASE_MODEL  # change to finetuned HF repo path after Phase 3
 
-
-# --- Text + grading: fine-tuned Qwen3-4B (Modal / Well-Tuned / Tiny Titan) --------
-# @app.cls(gpu="A10G", image=text_image, scaledown_window=120)
+@app.cls(gpu="A10G", image=_text_image, scaledown_window=120)
 class Qwen:
-    """TODO Phase 1: load base Qwen3-4B; Phase 3: prefer CONFIG.qwen_finetuned_model.
-    Expose generate(system, user, **kw)."""
+    @modal.enter()
+    def load(self) -> None:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self.tokenizer = AutoTokenizer.from_pretrained(_QWEN_MODEL_ID)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            _QWEN_MODEL_ID,
+            torch_dtype=torch.float16,
+            device_map="auto",
+        )
+        self.model.eval()
+
+    @modal.method()
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_new_tokens: int = 1024,
+        temperature: float = 0.7,
+    ) -> str:
+        import torch
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                do_sample=temperature > 0,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+        generated = outputs[0][inputs.input_ids.shape[1]:]
+        return self.tokenizer.decode(generated, skip_special_tokens=True).strip()
 
 
-# --- Multilingual: Tiny Aya (Cohere) ---------------------------------------------
-# @app.cls(gpu="L4", image=text_image, scaledown_window=120)
+# ---------------------------------------------------------------------------
+# MiniCPM-V  (vision: textbook + answer-sheet reading)
+# Phase 2.
+# ---------------------------------------------------------------------------
+@app.cls(gpu="A10G", image=_text_image, scaledown_window=120)
+class MiniCPM:
+    @modal.enter()
+    def load(self) -> None:
+        # TODO Phase 2: load CONFIG.minicpm_model via transformers (trust_remote_code=True)
+        raise NotImplementedError("Phase 2: load MiniCPM-V")
+
+    @modal.method()
+    def read_image(self, image_bytes: bytes, instruction: str) -> str:
+        raise NotImplementedError("Phase 2: implement MiniCPM-V inference")
+
+
+# ---------------------------------------------------------------------------
+# Tiny Aya  (multilingual: South-Asian languages — Cohere claim)
+# Phase 5.
+# ---------------------------------------------------------------------------
+@app.cls(gpu="L4", image=_text_image, scaledown_window=120)
 class TinyAya:
-    """TODO Phase 5: load CONFIG.aya_model (tiny-aya-fire); expose localize(text, language)."""
+    @modal.enter()
+    def load(self) -> None:
+        # TODO Phase 5: load CONFIG.aya_model (CohereLabs/tiny-aya-fire)
+        raise NotImplementedError("Phase 5: load Tiny Aya")
+
+    @modal.method()
+    def localize(self, text: str, language: str) -> str:
+        raise NotImplementedError("Phase 5: implement Tiny Aya localization")
 
 
-# --- Images: FLUX (Black Forest Labs) --------------------------------------------
-# @app.cls(gpu="A100", image=flux_image, scaledown_window=120)
+# ---------------------------------------------------------------------------
+# FLUX.1-schnell  (diagram/illustration generation — BFL claim)
+# Phase 5.
+# ---------------------------------------------------------------------------
+@app.cls(gpu="A100", image=_flux_image, scaledown_window=120)
 class Flux:
-    """TODO Phase 5: load CONFIG.flux_model; expose generate_diagram(prompt) -> bytes."""
+    @modal.enter()
+    def load(self) -> None:
+        # TODO Phase 5: load CONFIG.flux_model via diffusers
+        raise NotImplementedError("Phase 5: load FLUX")
+
+    @modal.method()
+    def generate_diagram(self, prompt: str) -> bytes:
+        raise NotImplementedError("Phase 5: implement FLUX diagram generation")
+
+
+# ---------------------------------------------------------------------------
+# Local entrypoint for quick manual testing:  modal run serving/modal_app.py
+# ---------------------------------------------------------------------------
+@app.local_entrypoint()
+def main() -> None:
+    q = Qwen()
+    out = q.generate.remote(
+        "You are a CBSE tutor for Class 8 Science.",
+        "Generate 3 medium MCQ questions on the topic of Cell Structure.",
+    )
+    print(out)

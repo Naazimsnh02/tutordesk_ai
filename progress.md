@@ -2,7 +2,7 @@
 
 Update this as work completes. Status: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
-Last updated: 2026-06-11
+Last updated: 2026-06-13
 
 ---
 
@@ -11,16 +11,19 @@ Last updated: 2026-06-11
 - ✅ Architecture decided: all models self-hosted on Modal; Space = thin Gradio client
 - ✅ `serving/modal_app.py` skeleton (one scale-to-zero fn per model)
 - ⬜ HF account + empty Space live
-- ⬜ Modal account + CLI auth (`modal token set`)
-- ⬜ `modal deploy serving/modal_app.py` succeeds
+- ✅ Modal account + CLI auth (`modal token set`)
+- ✅ `modal deploy serving/modal_app.py` succeeds
 - ⬜ **Exit:** "hello" Gradio app live on the Space
 
 ## Phase 1 — Core text generation (base Qwen3-4B)
-- ⬜ `models/qwen.py` — load base Qwen3-4B
-- ⬜ `agents/` — curriculum, question_gen, difficulty, answer, report
-- ⬜ `pipelines/weekly_pack.py` — 5-agent orchestration
-- ⬜ `utils/pdf.py` — print-ready PDF export
-- ⬜ **Exit:** Feature 2 (Weekly Teaching Pack) end-to-end → PDF
+- ✅ `serving/modal_app.py::Qwen` — Qwen3-4B on Modal (A10G, scale-to-zero)
+- ✅ `models/qwen.py` — Modal client (+ offline stub)
+- ✅ `agents/` — curriculum, question_gen, difficulty, answer, report, grader (all wired)
+- ✅ `pipelines/weekly_pack.py` — 5-agent orchestration + localization + PDF export
+- ✅ `utils/pdf.py` — print-ready A4 PDF (reportlab)
+- ✅ `app.py` — Weekly Teaching Pack tab wired; other features show "Coming soon"
+- ✅ Deploy: `modal deploy serving/modal_app.py` and smoke-test the pack
+- ✅ **Exit:** Feature 2 end-to-end live (Modal → Gradio → PDF download)
 
 ## Phase 2 — Vision (Feature 1)
 - ⬜ `models/minicpm.py` — MiniCPM-V 4.5 (+ 4.6 fallback flag)
@@ -67,7 +70,7 @@ Last updated: 2026-06-11
 | # | Feature | Status |
 |---|---|---|
 | 1 | Worksheet-from-Textbook (OpenBMB) | ⬜ |
-| 2 | Weekly Teaching Pack (Best Agent) | ⬜ |
+| 2 | Weekly Teaching Pack (Best Agent) | ✅ |
 | 3 | Regional-language (Cohere) | ⬜ |
 | 4 | Illustrated worksheets (BFL/FLUX) | ⬜ |
 | 5 | Photo Auto-Grading (OpenBMB + Well-Tuned) | ⬜ |
@@ -103,9 +106,9 @@ Last updated: 2026-06-11
 - 2026-06-11 — Multilingual model: **Tiny Aya `CohereLabs/tiny-aya-fire` (3.35B)**, South-Asian
   tuned. Total stack ≈27B (< 32B).
 
-## Open questions (confirm on hackathon Discord)
-- ⬜ Does the **Cohere award** accept self-hosted Aya, or require the Cohere API?
-- ⬜ Is the **32B cap** per-model or total? (We're ≈27B total either way.)
+## Open questions — resolved
+- ✅ Cohere award accepts self-hosted Aya (confirmed 2026-06-11)
+- ✅ 32B cap is **per-model** (each model individually) — all ours are well under
 
 ## Notes / blockers
 - (none yet)
