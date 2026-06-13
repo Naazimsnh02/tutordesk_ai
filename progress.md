@@ -31,8 +31,8 @@ Last updated: 2026-06-13
 - ✅ `utils/image.py` — PDF rasterization via PyMuPDF
 - ✅ `serving/modal_app.py::MiniCPM` — load + read_image implemented (A10G, trust_remote_code)
 - ✅ `app.py` — Worksheet-from-Textbook tab fully wired (photo + PDF upload)
-- ⬜ Deploy: `modal deploy serving/modal_app.py` and smoke-test with a textbook photo
-- ⬜ **Exit:** Feature 1 — chapter photo → worksheet+quiz+key
+- ✅ Deploy: `modal deploy serving/modal_app.py` and smoke-test with a textbook photo
+- ✅ **Exit:** Feature 1 — chapter photo → worksheet+quiz+key
 
 ## Phase 3 — Dataset + fine-tune on Modal
 - ⬜ Verify NCERT_Dataset subject coverage (KadamParth collection)
@@ -72,7 +72,7 @@ Last updated: 2026-06-13
 ## Feature status (at a glance)
 | # | Feature | Status |
 |---|---|---|
-| 1 | Worksheet-from-Textbook (OpenBMB) | ⬜ |
+| 1 | Worksheet-from-Textbook (OpenBMB) | ✅ |
 | 2 | Weekly Teaching Pack (Best Agent) | ✅ |
 | 3 | Regional-language (Cohere) | ⬜ |
 | 4 | Illustrated worksheets (BFL/FLUX) | ⬜ |
