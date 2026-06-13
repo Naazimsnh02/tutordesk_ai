@@ -211,7 +211,6 @@ def main() -> None:
             batch.put_file(str(fpath), fpath.name)
             size_kb = fpath.stat().st_size // 1024
             print(f"  {fpath.name}  ({size_kb} KB)")
-    vol.commit()
     print("Upload complete.")
 
     # ── Launch training ──────────────────────────────────────────────────────
