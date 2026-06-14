@@ -38,7 +38,7 @@ tags:
 
 [![Hugging Face Space](https://img.shields.io/badge/🤗%20Space-Live%20Demo-blue)](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai)
 [![Watch Demo](https://img.shields.io/badge/▶%20Watch-Demo%20Video-red)](https://youtu.be/HBBLSwXUeaM)
-[![Blog Post](https://img.shields.io/badge/📝%20Blog-Field%20Notes-orange)](https://github.com/Naazimsnh02/tutordesk_ai/blob/main/docs/field_notes.md)
+[![Blog Post](https://img.shields.io/badge/📝%20Blog-Field%20Notes-orange)](https://huggingface.co/blog/build-small-hackathon/tutordesk-ai)
 [![X Post](https://img.shields.io/badge/𝕏-View%20Post-black)](https://x.com/naazimhussain02/status/2066153448501072212)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://python.org)

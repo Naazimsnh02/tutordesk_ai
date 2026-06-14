@@ -7,7 +7,7 @@
 | **Space** | [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai) |
 | **GitHub** | [Naazimsnh02/tutordesk_ai](https://github.com/Naazimsnh02/tutordesk_ai) |
 | **Demo Video** | ✅ [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM) |
-| **Blog / Field Notes** | ✅ [`docs/field_notes.md`](docs/field_notes.md) |
+| **Blog / Field Notes** | ✅ [huggingface.co/blog/build-small-hackathon/tutordesk-ai](https://huggingface.co/blog/build-small-hackathon/tutordesk-ai) |
 | **Social Post** | ✅ [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212) |
 | **Track** | Track 1: Backyard AI |
 | **Total Parameters** | ~27B across all models (≤32B cap ✅) |
@@ -80,7 +80,7 @@ Upload scripts: `data/redact_sessions.py` (redact first) → `data/export_traces
 
 ### ✅ Field Notes
 
-Blog post written (`field_notes.md`): *"How I built an AI teaching assistant for India's 10 million tuition teachers"*
+Blog post published: *["How I built an AI teaching assistant for India's 10 million tuition teachers"](https://huggingface.co/blog/build-small-hackathon/tutordesk-ai)*
 
 Covers: the 90-min prep problem, the 5-agent pipeline design, Qwen3-4B fine-tuning on NCERT data, MiniCPM-V for answer-sheet OCR, the Modal self-hosting architecture, the hardest bug, and what "Indian-style grading" actually means.
 
@@ -124,7 +124,7 @@ Grader Agent         → answer-sheet photo → step-mark score + feedback
 | 3 | Llama Champion | `models/qwen.py _local_llm()` — Qwen3-4B GGUF Q4_K_M via llama-cpp-python |
 | 4 | Off-Brand | `frontend/theme.py` — saffron/green palette, custom CSS, pill radios, gradient header |
 | 5 | Sharing is Caring | `naazimsnh02/tutordesk-agent-traces` — per-agent JSONL traces from all pipelines |
-| 6 | Field Notes | `docs/field_notes.md` — submitted to HF Field Notes |
+| 6 | Field Notes | [Published on HF](https://huggingface.co/blog/build-small-hackathon/tutordesk-ai) — HF Field Notes |
 
 **Community Choice** — TutorDesk AI is built around a problem that 10+ million Indian teachers face every single day. It is demonstrable to anyone who has ever received a worksheet or taken a class test. The live Space requires no setup, no account, and produces a tangible output (a printable PDF) in under 2 minutes.
 
@@ -184,32 +184,6 @@ Feature 5  Photo Auto-Grading        MiniCPM-V 4.5 + Qwen3-4B         →  Step-
 | Demo video | ✅ [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM) |
 | Social media post | ✅ [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212) |
 | Submission before June 15, 2026 | ✅ Submitted June 14, 2026 |
-
----
-
-## What Is Complete vs. Pending
-
-### ✅ Complete (Phases 0–6)
-
-- All 5 features built and wired end-to-end (`app.py`)
-- Fine-tuned Qwen3-4B trained on Modal, published at `naazimsnh02/tutordesk-qwen3-4b`
-- All 4 Modal scale-to-zero GPU functions deployed (`serving/modal_app.py`)
-- Custom Gradio theme (`frontend/theme.py`) — Off-Brand badge
-- Offline mode (`TUTORDESK_OFFLINE=1` + GGUF) — Off the Grid + Llama Champion
-- Agent trace logger + export script (`traces/logger.py`, `data/export_traces.py`)
-- Print-ready A4 PDF export for all outputs (`utils/pdf.py`)
-- Multilingual UI labels (`utils/i18n.py`) — English / Hindi / Tamil
-- Field Notes blog post (`field_notes.md`)
-- Model card for `naazimsnh02/tutordesk-qwen3-4b`
-
-### ✅ Phase 7 — Complete (submitted June 14, 2026)
-
-1. ✅ **HF Space deployed** — [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai)
-2. ✅ **Agent traces uploaded** — `naazimsnh02/tutordesk-agent-traces`
-3. ✅ **Demo video recorded & published** — [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM)
-4. ✅ **Field Notes written** — `docs/field_notes.md`
-5. ✅ **Social post live** — [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212)
-6. ✅ **Hackathon form submitted** before June 15 deadline
 
 ---
 
