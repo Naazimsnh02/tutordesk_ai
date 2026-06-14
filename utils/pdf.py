@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+import xml.etree.ElementTree as _ET
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -117,6 +118,80 @@ def _md_inline(text: str) -> str:
     return text
 
 
+# ── XML tag-nesting fixer ─────────────────────────────────────────────────────
+
+_INLINE_TAGS = {"b", "i", "u", "strike", "super", "sub"}
+
+
+def _fix_inline_tags(text: str) -> str:
+    """Re-order mismatched inline closing tags so ReportLab can parse them.
+
+    Model output frequently produces <b><i></b></i> instead of <b><i></i></b>.
+    We walk the string with an open-tag stack and reorder closing tags to match.
+    If the result is still invalid XML, we strip all inline tags as a last resort.
+    """
+    # Fast path: already valid
+    try:
+        _ET.fromstring(f"<para>{text}</para>")
+        return text
+    except _ET.ParseError:
+        pass
+
+    result: list[str] = []
+    stack: list[str] = []
+    pos = 0
+
+    for m in re.finditer(r"<(/?)(\w+)([^>]*)>", text):
+        result.append(text[pos : m.start()])
+        pos = m.end()
+        closing, tag, attrs = m.group(1), m.group(2).lower(), m.group(3)
+
+        if tag not in _INLINE_TAGS and not tag.startswith("font"):
+            result.append(m.group(0))
+            continue
+
+        if not closing:
+            stack.append(tag)
+            result.append(f"<{tag}{attrs}>")
+        else:
+            if stack and stack[-1] == tag:
+                stack.pop()
+                result.append(f"</{tag}>")
+            elif tag in stack:
+                # Close inner tags first, then the target tag
+                while stack and stack[-1] != tag:
+                    result.append(f"</{stack.pop()}>")
+                if stack:
+                    stack.pop()
+                result.append(f"</{tag}>")
+            # else: orphan close tag — skip it
+
+    result.append(text[pos:])
+    while stack:
+        result.append(f"</{stack.pop()}>")
+
+    fixed = "".join(result)
+
+    try:
+        _ET.fromstring(f"<para>{fixed}</para>")
+        return fixed
+    except _ET.ParseError:
+        # Last resort: strip all inline markup, keep plain text
+        return re.sub(r"<[^>]+>", "", text)
+
+
+def _safe_para(text: str, style) -> Paragraph:
+    """Create a ReportLab Paragraph, healing tag-nesting errors from model output."""
+    try:
+        return Paragraph(text, style)
+    except Exception:
+        healed = _fix_inline_tags(text)
+        try:
+            return Paragraph(healed, style)
+        except Exception:
+            return Paragraph(re.sub(r"<[^>]+>", "", text), style)
+
+
 # ── Block markdown parser ─────────────────────────────────────────────────────
 
 def _parse_body(text: str) -> list:
@@ -131,7 +206,7 @@ def _parse_body(text: str) -> list:
             return
         items = [
             ListItem(
-                Paragraph(_md_inline(b), _bullet_style),
+                _safe_para(_md_inline(b), _bullet_style),
                 bulletColor=_ACCENT,
                 leftIndent=8,
             )
@@ -146,7 +221,7 @@ def _parse_body(text: str) -> list:
     def flush_nums() -> None:
         if not num_buf:
             return
-        items = [ListItem(Paragraph(_md_inline(t), _num_style)) for t in num_buf]
+        items = [ListItem(_safe_para(_md_inline(t), _num_style)) for t in num_buf]
         flowables.append(
             ListFlowable(items, bulletType="1", leftIndent=16, spaceAfter=4)
         )
@@ -177,15 +252,15 @@ def _parse_body(text: str) -> list:
         # ATX headings
         if line.startswith('### '):
             flush_bullets(); flush_nums()
-            flowables.append(Paragraph(_md_inline(line[4:]), _h3_style))
+            flowables.append(_safe_para(_md_inline(line[4:]), _h3_style))
             continue
         if line.startswith('## '):
             flush_bullets(); flush_nums()
-            flowables.append(Paragraph(_md_inline(line[3:]), _h2_style))
+            flowables.append(_safe_para(_md_inline(line[3:]), _h2_style))
             continue
         if line.startswith('# '):
             flush_bullets(); flush_nums()
-            flowables.append(Paragraph(_md_inline(line[2:]), _h1_style))
+            flowables.append(_safe_para(_md_inline(line[2:]), _h1_style))
             continue
 
         # Unordered list item (-, *, +)
@@ -205,7 +280,7 @@ def _parse_body(text: str) -> list:
         # Regular body text
         flush_bullets()
         flush_nums()
-        flowables.append(Paragraph(_md_inline(line), _body_style))
+        flowables.append(_safe_para(_md_inline(line), _body_style))
 
     flush_bullets()
     flush_nums()
@@ -268,8 +343,8 @@ def to_pdf(
     )
 
     story: list = [
-        Paragraph(title, _title_style),
-        Paragraph(subtitle, _subtitle_style),
+        _safe_para(title, _title_style),
+        _safe_para(subtitle, _subtitle_style),
         Spacer(1, 0.15 * cm),
         HRFlowable(width="100%", thickness=1.5, color=_ACCENT),
         Spacer(1, 0.35 * cm),

@@ -264,6 +264,90 @@ _OUTPUT_LABEL = '<div class="td-output-label">Generated Output</div>'
 
 
 # ---------------------------------------------------------------------------
+# Custom loading card + visibility toggles
+#
+# Instead of letting Gradio paint its default spinner / "processing | 12.3s"
+# meta-text on the output cards, we hide the result cards entirely while a job
+# runs and show a fully custom animated pipeline card in their place. The click
+# handlers are chained: _show_loading → run_* → _show_results.
+# ---------------------------------------------------------------------------
+
+def _loading_html(title: str, steps: list[str], accent: str = "amber") -> str:
+    """Build the custom animated loading card for a feature pipeline."""
+    items = "".join(
+        f'<li class="td-load-step" style="--i:{i}">'
+        f'<span class="td-load-tick"></span>'
+        f'<span class="td-load-step-label">{s}</span>'
+        f'</li>'
+        for i, s in enumerate(steps)
+    )
+    return (
+        f'<div class="td-loading td-loading--{accent}">'
+        f'  <div class="td-loading-stage">'
+        f'    <div class="td-loading-orbit">'
+        f'      <span class="td-orbit-ring"></span>'
+        f'      <span class="td-orbit-dot d1"></span>'
+        f'      <span class="td-orbit-dot d2"></span>'
+        f'      <span class="td-orbit-dot d3"></span>'
+        f'      <span class="td-loading-core">📚</span>'
+        f'    </div>'
+        f'  </div>'
+        f'  <div class="td-loading-body">'
+        f'    <div class="td-loading-title">{title}</div>'
+        f'    <div class="td-loading-sub">Running on Modal GPUs · cold start can take up to a minute</div>'
+        f'    <ul class="td-load-steps">{items}</ul>'
+        f'    <div class="td-load-bar"><span></span></div>'
+        f'  </div>'
+        f'</div>'
+    )
+
+
+def _show_loading():
+    """Reveal the custom loading card, hide the (stale) results card."""
+    return gr.update(visible=True), gr.update(visible=False)
+
+
+def _show_results():
+    """Hide the loading card, reveal the freshly-generated results card."""
+    return gr.update(visible=False), gr.update(visible=True)
+
+
+# ---------------------------------------------------------------------------
+# Combined pipeline + reveal functions
+#
+# Gradio's chained .then() dispatches each step as a separate SSE event.
+# When step 2 (pipeline) writes into components whose parent Column is
+# visible=False, the browser hasn't mounted those components yet (first run),
+# so the data is silently dropped. The fix: merge the pipeline return value
+# with the visibility flip into ONE event so content and reveal land together.
+# ---------------------------------------------------------------------------
+
+def _run_weekly_pack_combined(grade, subject, chapter_text, question_count, difficulty, language):
+    results = run_weekly_pack(grade, subject, chapter_text, question_count, difficulty, language)
+    return (gr.update(visible=False), gr.update(visible=True)) + results
+
+
+def _run_from_textbook_combined(photo, pdf_file, grade, subject, question_count, difficulty, language):
+    results = run_from_textbook(photo, pdf_file, grade, subject, question_count, difficulty, language)
+    return (gr.update(visible=False), gr.update(visible=True)) + results
+
+
+def _run_auto_grade_combined(photo, marking_scheme, student_name, grade, subject):
+    results = run_auto_grade(photo, marking_scheme, student_name, grade, subject)
+    return (gr.update(visible=False), gr.update(visible=True)) + results
+
+
+def _run_localize_combined(content, language):
+    results = run_localize(content, language)
+    return (gr.update(visible=False), gr.update(visible=True)) + results
+
+
+def _run_illustrated_pack_combined(grade, subject, chapter_text, question_count, difficulty, language):
+    results = run_illustrated_pack(grade, subject, chapter_text, question_count, difficulty, language)
+    return (gr.update(visible=False), gr.update(visible=True)) + results
+
+
+# ---------------------------------------------------------------------------
 # App layout
 # ---------------------------------------------------------------------------
 
@@ -283,7 +367,7 @@ def build_app() -> gr.Blocks:
             '<span class="td-badge">📖 Classes 6–10</span>'
             '<span class="td-badge">🔬 Math &amp; Science</span>'
             '<span class="td-badge">📋 CBSE / NCERT</span>'
-            '<span class="td-badge">🇮🇳 EN · HI · TA</span>'
+            '<span class="td-badge">EN · HI · TA</span>'
             '<span class="td-badge">⚡ Modal GPU</span>'
             '<span class="td-badge">≤ 32B Params</span>'
             '</div>'
@@ -327,29 +411,49 @@ def build_app() -> gr.Blocks:
 
                 gr.HTML(_DIVIDER)
                 generate_btn = gr.Button("✨ Generate Teaching Pack", variant="primary", elem_id="wp-btn")
-                gr.HTML(_OUTPUT_LABEL)
 
-                with gr.Tabs():
-                    with gr.Tab("📝 Worksheet"):
-                        worksheet_out = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("📚 Homework"):
-                        homework_out = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("❓ Quiz"):
-                        quiz_out = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("🔑 Answer Key"):
-                        key_out = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("👨‍👩‍👧 Parent Note"):
-                        note_out = gr.Markdown(elem_classes=["output-markdown"])
-
-                pdf_out = gr.File(
-                    label="⬇️ Download PDF — all sections",
-                    elem_classes=["td-pdf-download"],
+                wp_loading = gr.HTML(
+                    _loading_html(
+                        "Building your weekly teaching pack…",
+                        [
+                            "Analysing chapter & curriculum",
+                            "Generating questions",
+                            "Calibrating difficulty",
+                            "Writing answer key & parent note",
+                            "Assembling print-ready PDF",
+                        ],
+                    ),
+                    visible=False,
+                    elem_classes=["td-loading-wrap"],
                 )
 
+                with gr.Column(visible=False, elem_classes=["td-results"]) as wp_results:
+                    gr.HTML(_OUTPUT_LABEL)
+                    with gr.Tabs():
+                        with gr.Tab("📝 Worksheet"):
+                            worksheet_out = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("📚 Homework"):
+                            homework_out = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("❓ Quiz"):
+                            quiz_out = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("🔑 Answer Key"):
+                            key_out = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("👨‍👩‍👧 Parent Note"):
+                            note_out = gr.Markdown(elem_classes=["output-markdown"])
+
+                    pdf_out = gr.File(
+                        label="⬇️ Download PDF — all sections",
+                        elem_classes=["td-pdf-download"],
+                    )
+
                 generate_btn.click(
-                    fn=run_weekly_pack,
+                    fn=_show_loading, inputs=None, outputs=[wp_loading, wp_results],
+                    show_progress="hidden",
+                ).then(
+                    fn=_run_weekly_pack_combined,
                     inputs=[grade, subject, chapter_text, question_count, difficulty, language],
-                    outputs=[worksheet_out, homework_out, quiz_out, key_out, note_out, pdf_out],
+                    outputs=[wp_loading, wp_results, worksheet_out, homework_out, quiz_out, key_out, note_out, pdf_out],
+                    show_progress="hidden",
                 )
 
             # ── Feature 1: Worksheet-from-Textbook ───────────────────────
@@ -393,32 +497,52 @@ def build_app() -> gr.Blocks:
                 tb_btn = gr.Button(
                     "🔍 Extract & Generate Teaching Pack", variant="primary", elem_id="tb-btn"
                 )
-                gr.HTML(_OUTPUT_LABEL)
 
-                with gr.Tabs():
-                    with gr.Tab("📝 Worksheet"):
-                        tb_worksheet = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("📚 Homework"):
-                        tb_homework = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("❓ Quiz"):
-                        tb_quiz = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("🔑 Answer Key"):
-                        tb_key = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("👨‍👩‍👧 Parent Note"):
-                        tb_note = gr.Markdown(elem_classes=["output-markdown"])
-
-                tb_pdf_out = gr.File(
-                    label="⬇️ Download PDF — all sections",
-                    elem_classes=["td-pdf-download"],
+                tb_loading = gr.HTML(
+                    _loading_html(
+                        "Reading your textbook & building the pack…",
+                        [
+                            "MiniCPM-V reading your photo / PDF",
+                            "Extracting chapter concepts",
+                            "Generating questions & answer key",
+                            "Writing parent note",
+                            "Assembling print-ready PDF",
+                        ],
+                    ),
+                    visible=False,
+                    elem_classes=["td-loading-wrap"],
                 )
 
+                with gr.Column(visible=False, elem_classes=["td-results"]) as tb_results:
+                    gr.HTML(_OUTPUT_LABEL)
+                    with gr.Tabs():
+                        with gr.Tab("📝 Worksheet"):
+                            tb_worksheet = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("📚 Homework"):
+                            tb_homework = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("❓ Quiz"):
+                            tb_quiz = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("🔑 Answer Key"):
+                            tb_key = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("👨‍👩‍👧 Parent Note"):
+                            tb_note = gr.Markdown(elem_classes=["output-markdown"])
+
+                    tb_pdf_out = gr.File(
+                        label="⬇️ Download PDF — all sections",
+                        elem_classes=["td-pdf-download"],
+                    )
+
                 tb_btn.click(
-                    fn=run_from_textbook,
+                    fn=_show_loading, inputs=None, outputs=[tb_loading, tb_results],
+                    show_progress="hidden",
+                ).then(
+                    fn=_run_from_textbook_combined,
                     inputs=[
                         tb_photo, tb_pdf,
                         tb_grade, tb_subject, tb_question_count, tb_difficulty, tb_language,
                     ],
-                    outputs=[tb_worksheet, tb_homework, tb_quiz, tb_key, tb_note, tb_pdf_out],
+                    outputs=[tb_loading, tb_results, tb_worksheet, tb_homework, tb_quiz, tb_key, tb_note, tb_pdf_out],
+                    show_progress="hidden",
                 )
 
             # ── Feature 5: Photo Auto-Grading ────────────────────────────
@@ -460,27 +584,47 @@ def build_app() -> gr.Blocks:
 
                 gr.HTML(_DIVIDER)
                 ag_btn = gr.Button("🎯 Grade Answer Sheet", variant="primary", elem_id="ag-btn")
-                gr.HTML('<div class="td-output-label">Grading Results</div>')
 
-                ag_summary = gr.Markdown(
-                    elem_id="ag-summary",
-                    elem_classes=["output-markdown"],
+                ag_loading = gr.HTML(
+                    _loading_html(
+                        "Grading the answer sheet…",
+                        [
+                            "MiniCPM-V reading the answer sheet",
+                            "Qwen3-4B grading Indian-style",
+                            "Tallying step marks & partial credit",
+                            "Writing report & parent note",
+                        ],
+                        accent="green",
+                    ),
+                    visible=False,
+                    elem_classes=["td-loading-wrap"],
                 )
-                ag_note = gr.Textbox(
-                    label="Parent Note",
-                    lines=4,
-                    interactive=False,
-                    elem_id="ag-note",
-                )
-                ag_pdf = gr.File(
-                    label="⬇️ Download Grade Report (PDF)",
-                    elem_classes=["td-pdf-download"],
-                )
+
+                with gr.Column(visible=False, elem_classes=["td-results"]) as ag_results:
+                    gr.HTML('<div class="td-output-label">Grading Results</div>')
+                    ag_summary = gr.Markdown(
+                        elem_id="ag-summary",
+                        elem_classes=["output-markdown"],
+                    )
+                    ag_note = gr.Textbox(
+                        label="Parent Note",
+                        lines=4,
+                        interactive=False,
+                        elem_id="ag-note",
+                    )
+                    ag_pdf = gr.File(
+                        label="⬇️ Download Grade Report (PDF)",
+                        elem_classes=["td-pdf-download"],
+                    )
 
                 ag_btn.click(
-                    fn=run_auto_grade,
+                    fn=_show_loading, inputs=None, outputs=[ag_loading, ag_results],
+                    show_progress="hidden",
+                ).then(
+                    fn=_run_auto_grade_combined,
                     inputs=[ag_photo, ag_scheme, ag_student, ag_grade, ag_subject],
-                    outputs=[ag_summary, ag_note, ag_pdf],
+                    outputs=[ag_loading, ag_results, ag_summary, ag_note, ag_pdf],
+                    show_progress="hidden",
                 )
 
             # ── Feature 3: Regional Language ─────────────────────────────
@@ -505,22 +649,42 @@ def build_app() -> gr.Blocks:
                 )
                 gr.HTML(_DIVIDER)
                 rl_btn = gr.Button("🌐 Translate with Tiny Aya", variant="primary", elem_id="rl-btn")
-                gr.HTML('<div class="td-output-label">Translated Output</div>')
-                rl_out = gr.Textbox(
-                    label="Translated Output",
-                    lines=12,
-                    interactive=False,
-                    elem_id="rl-out",
-                )
-                rl_pdf = gr.File(
-                    label="⬇️ Download Translated PDF",
-                    elem_classes=["td-pdf-download"],
+
+                rl_loading = gr.HTML(
+                    _loading_html(
+                        "Translating with Tiny Aya…",
+                        [
+                            "Tiny Aya translating your content",
+                            "Preserving formatting & subject terms",
+                            "Building translated PDF",
+                        ],
+                        accent="green",
+                    ),
+                    visible=False,
+                    elem_classes=["td-loading-wrap"],
                 )
 
+                with gr.Column(visible=False, elem_classes=["td-results"]) as rl_results:
+                    gr.HTML('<div class="td-output-label">Translated Output</div>')
+                    rl_out = gr.Textbox(
+                        label="Translated Output",
+                        lines=12,
+                        interactive=False,
+                        elem_id="rl-out",
+                    )
+                    rl_pdf = gr.File(
+                        label="⬇️ Download Translated PDF",
+                        elem_classes=["td-pdf-download"],
+                    )
+
                 rl_btn.click(
-                    fn=run_localize,
+                    fn=_show_loading, inputs=None, outputs=[rl_loading, rl_results],
+                    show_progress="hidden",
+                ).then(
+                    fn=_run_localize_combined,
                     inputs=[rl_content, rl_language],
-                    outputs=[rl_out, rl_pdf],
+                    outputs=[rl_loading, rl_results, rl_out, rl_pdf],
+                    show_progress="hidden",
                 )
 
             # ── Feature 4: Illustrated Worksheets ────────────────────────
@@ -561,41 +725,61 @@ def build_app() -> gr.Blocks:
                 il_btn = gr.Button(
                     "🎨 Generate Illustrated Pack", variant="primary", elem_id="il-btn"
                 )
-                il_diagram_status = gr.Textbox(
-                    label="Diagram Status",
-                    interactive=False,
-                    lines=1,
-                    elem_id="il-status",
-                )
-                gr.HTML(_OUTPUT_LABEL)
 
-                with gr.Tabs():
-                    with gr.Tab("📝 Worksheet"):
-                        il_worksheet = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("📚 Homework"):
-                        il_homework = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("❓ Quiz"):
-                        il_quiz = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("🔑 Answer Key"):
-                        il_key = gr.Markdown(elem_classes=["output-markdown"])
-                    with gr.Tab("👨‍👩‍👧 Parent Note"):
-                        il_note = gr.Markdown(elem_classes=["output-markdown"])
-
-                il_pdf = gr.File(
-                    label="⬇️ Download Illustrated PDF (diagrams embedded)",
-                    elem_classes=["td-pdf-download"],
+                il_loading = gr.HTML(
+                    _loading_html(
+                        "Generating your illustrated pack…",
+                        [
+                            "Building the teaching pack",
+                            "Identifying key concepts to illustrate",
+                            "FLUX.1-schnell drawing diagrams",
+                            "Embedding diagrams into the PDF",
+                        ],
+                    ),
+                    visible=False,
+                    elem_classes=["td-loading-wrap"],
                 )
+
+                with gr.Column(visible=False, elem_classes=["td-results"]) as il_results:
+                    il_diagram_status = gr.Textbox(
+                        label="Diagram Status",
+                        interactive=False,
+                        lines=1,
+                        elem_id="il-status",
+                    )
+                    gr.HTML(_OUTPUT_LABEL)
+                    with gr.Tabs():
+                        with gr.Tab("📝 Worksheet"):
+                            il_worksheet = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("📚 Homework"):
+                            il_homework = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("❓ Quiz"):
+                            il_quiz = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("🔑 Answer Key"):
+                            il_key = gr.Markdown(elem_classes=["output-markdown"])
+                        with gr.Tab("👨‍👩‍👧 Parent Note"):
+                            il_note = gr.Markdown(elem_classes=["output-markdown"])
+
+                    il_pdf = gr.File(
+                        label="⬇️ Download Illustrated PDF (diagrams embedded)",
+                        elem_classes=["td-pdf-download"],
+                    )
 
                 il_btn.click(
-                    fn=run_illustrated_pack,
+                    fn=_show_loading, inputs=None, outputs=[il_loading, il_results],
+                    show_progress="hidden",
+                ).then(
+                    fn=_run_illustrated_pack_combined,
                     inputs=[
                         il_grade, il_subject, il_chapter_text,
                         il_question_count, il_difficulty, il_language,
                     ],
                     outputs=[
+                        il_loading, il_results,
                         il_worksheet, il_homework, il_quiz,
                         il_key, il_note, il_diagram_status, il_pdf,
                     ],
+                    show_progress="hidden",
                 )
 
         # ── Footer ───────────────────────────────────────────────────────────

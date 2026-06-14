@@ -129,6 +129,7 @@ def export_sessions(token: str) -> None:
 DATASET_CARD = """\
 ---
 license: mit
+format: agent-traces
 tags:
   - agent-traces
   - claude-code
@@ -136,6 +137,9 @@ tags:
   - tutordesk-ai
   - education
   - indian-education
+configs:
+  - config_name: build_sessions
+    data_files: build_sessions/*.jsonl
 ---
 
 # TutorDesk AI — Agent Traces

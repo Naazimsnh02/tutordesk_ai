@@ -751,6 +751,159 @@ button:disabled svg { display: none !important; }
     font-size: 0.73rem !important;
 }
 
+/* ── Custom pipeline loading card ────────────────────────────────────────── */
+/* Shown in place of the result cards while a job runs, so the user never sees
+   Gradio's default spinner / "processing | 12.3s" meta-text. */
+
+@keyframes td-orbit-spin   { to { transform: rotate(360deg); } }
+@keyframes td-core-pulse   { 0%,100% { transform: scale(1); opacity: 1; }
+                             50%     { transform: scale(1.12); opacity: 0.82; } }
+@keyframes td-step-cycle   { 0%, 12% { opacity: 0.35; }
+                             24%, 70% { opacity: 1; }
+                             88%, 100% { opacity: 0.35; } }
+@keyframes td-tick-cycle   { 0%, 12% { background: #3A3020; box-shadow: none; }
+                             24%, 100% { background: var(--td-accent);
+                                         box-shadow: 0 0 8px var(--td-accent-glow); } }
+@keyframes td-loadbar      { 0%   { left: -38%; }
+                             100% { left: 100%; } }
+@keyframes td-card-in      { from { opacity: 0; transform: translateY(8px); }
+                             to   { opacity: 1; transform: translateY(0); } }
+
+.td-loading-wrap { animation: none !important; }
+.td-loading-wrap.generating::before,
+.td-loading-wrap.generating::after { display: none !important; }
+
+.td-loading {
+    --td-accent: #F59E0B;
+    --td-accent-2: #D97706;
+    --td-accent-glow: rgba(245,158,11,0.55);
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    background:
+        radial-gradient(120% 140% at 0% 0%, rgba(245,158,11,0.07), transparent 55%),
+        #15120D;
+    border: 1.5px solid #3A3020;
+    border-radius: 16px;
+    padding: 26px 30px;
+    margin: 8px 0 4px;
+    box-shadow: 0 10px 36px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
+    overflow: hidden;
+    animation: td-card-in 0.4s ease both;
+}
+.td-loading--green {
+    --td-accent: #10B981;
+    --td-accent-2: #059669;
+    --td-accent-glow: rgba(16,185,129,0.55);
+    background:
+        radial-gradient(120% 140% at 0% 0%, rgba(16,185,129,0.07), transparent 55%),
+        #0E1712;
+    border-color: #1E4A38;
+}
+
+/* Orbiting loader */
+.td-loading-stage { flex: 0 0 auto; }
+.td-loading-orbit {
+    position: relative;
+    width: 76px; height: 76px;
+}
+.td-orbit-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--td-accent);
+    border-right-color: var(--td-accent-2);
+    animation: td-orbit-spin 1s linear infinite;
+}
+.td-orbit-dot {
+    position: absolute;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--td-accent);
+    box-shadow: 0 0 10px var(--td-accent-glow);
+    top: 50%; left: 50%;
+    margin: -4px 0 0 -4px;
+}
+.td-orbit-dot.d1 { animation: td-orbit-spin 1.6s linear infinite; transform-origin: 4px 38px; }
+.td-orbit-dot.d2 { animation: td-orbit-spin 2.2s linear infinite reverse; transform-origin: 4px 30px; opacity: 0.7; }
+.td-orbit-dot.d3 { animation: td-orbit-spin 2.8s linear infinite; transform-origin: 4px 22px; opacity: 0.45; }
+.td-loading-core {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    animation: td-core-pulse 1.8s ease-in-out infinite;
+}
+
+/* Text + step list */
+.td-loading-body { flex: 1 1 auto; min-width: 0; }
+.td-loading-title {
+    color: #FCD34D;
+    font-size: 1.04rem;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    margin-bottom: 3px;
+}
+.td-loading--green .td-loading-title { color: #6EE7B7; }
+.td-loading-sub {
+    color: #8A7A5C;
+    font-size: 0.76rem;
+    margin-bottom: 14px;
+}
+.td-load-steps {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.td-load-step {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    color: #C8B890;
+    font-size: 0.85rem;
+    margin: 0 !important;
+    opacity: 0.35;
+    animation: td-step-cycle 5s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.55s);
+}
+.td-load-tick {
+    flex: 0 0 auto;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #3A3020;
+    animation: td-tick-cycle 5s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.55s);
+}
+.td-load-step-label { line-height: 1.4; }
+
+/* Indeterminate sweep bar */
+.td-load-bar {
+    position: relative;
+    height: 3px;
+    margin-top: 16px;
+    background: #241E15;
+    border-radius: 100px;
+    overflow: hidden;
+}
+.td-loading--green .td-load-bar { background: #14241C; }
+.td-load-bar span {
+    position: absolute;
+    top: 0; height: 100%;
+    width: 38%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, transparent, var(--td-accent), transparent);
+    animation: td-loadbar 1.5s ease-in-out infinite;
+}
+
+/* Freshly-revealed result card */
+.td-results { animation: td-card-in 0.45s ease both; }
+
+@media (max-width: 768px) {
+    .td-loading { flex-direction: column; text-align: center; gap: 16px; padding: 22px 18px; }
+    .td-load-steps { align-items: flex-start; text-align: left; }
+}
+
 /* ── Hide Gradio's built-in footer bar ───────────────────────────────────── */
 footer { display: none !important; }
 
