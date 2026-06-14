@@ -129,10 +129,11 @@ demo time." The reality: cache the model in the Modal volume, and the first warm
 
 ## Links
 
-- **Space:** (to be published before June 15, 2026)
+- **Space:** https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai
+- **Demo Video:** https://youtu.be/HBBLSwXUeaM
 - **Fine-tuned model:** https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b
 - **Agent traces dataset:** https://huggingface.co/datasets/naazimsnh02/tutordesk-agent-traces
-- **Source:** https://github.com/naazimsnh02/tutordesk-ai *(if public)*
+- **Source:** https://github.com/Naazimsnh02/tutordesk_ai
 
 ---
 

@@ -36,10 +36,10 @@ tags:
 
 *90 minutes of daily prep → under 10 minutes*
 
-[![Hugging Face Space](https://img.shields.io/badge/🤗%20Space-Live%20Demo-blue)](https://huggingface.co/spaces/naazimsnh02/tutordesk-ai)
-[![Watch Demo](https://img.shields.io/badge/▶%20Watch-Demo-red)](#)
-[![Blog Post](https://img.shields.io/badge/📝%20Blog-Field%20Notes-orange)](#)
-[![X Post](https://img.shields.io/badge/𝕏-View%20Post-black)](#)
+[![Hugging Face Space](https://img.shields.io/badge/🤗%20Space-Live%20Demo-blue)](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai)
+[![Watch Demo](https://img.shields.io/badge/▶%20Watch-Demo%20Video-red)](https://youtu.be/HBBLSwXUeaM)
+[![Blog Post](https://img.shields.io/badge/📝%20Blog-Field%20Notes-orange)](https://github.com/Naazimsnh02/tutordesk_ai/blob/main/docs/field_notes.md)
+[![X Post](https://img.shields.io/badge/𝕏-View%20Post-black)](https://x.com/naazimhussain02/status/2066153448501072212)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://python.org)
 [![Training: Modal](https://img.shields.io/badge/Training-Modal%20A10G-orange)](https://modal.com)
@@ -149,7 +149,7 @@ Base data: **ParthKadam2003/NCERT_Dataset** (124k rows, MIT licence).
 ## Running Locally
 
 ```bash
-git clone https://github.com/naazimsnh02/tutordesk-ai
+git clone https://github.com/Naazimsnh02/tutordesk_ai
 cd tutordesk-ai
 pip install -r requirements.txt
 cp .env.example .env   # fill in MODAL_TOKEN_ID, HF_TOKEN
@@ -295,7 +295,10 @@ Objective Math/Science questions make grading demonstrable and verifiable. Human
 
 ## Links
 
-- **HF Space**: [naazimsnh02/tutordesk-ai](https://huggingface.co/spaces/naazimsnh02/tutordesk-ai)
+- **HF Space**: [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai)
+- **Demo Video**: [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM)
+- **GitHub**: [Naazimsnh02/tutordesk_ai](https://github.com/Naazimsnh02/tutordesk_ai)
+- **X Post**: [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212)
 - **Fine-tuned model**: [naazimsnh02/tutordesk-qwen3-4b](https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b)
 - **Agent traces**: [naazimsnh02/tutordesk-agent-traces](https://huggingface.co/datasets/naazimsnh02/tutordesk-agent-traces)
 
@@ -311,4 +314,4 @@ Objective Math/Science questions make grading demonstrable and verifiable. Human
 
 ---
 
-*HuggingFace Build Small Hackathon 2026 · Track 1: Backyard AI · [naazimsnh02](https://github.com/naazimsnh02)*
+*HuggingFace Build Small Hackathon 2026 · Track 1: Backyard AI · [Naazimsnh02](https://github.com/Naazimsnh02/tutordesk_ai)*

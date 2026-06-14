@@ -4,10 +4,11 @@
 
 | | |
 |---|---|
-| **Space** | [naazimsnh02/tutordesk-ai](https://huggingface.co/spaces/naazimsnh02/tutordesk-ai) |
-| **Demo Video** | ⬜ Pending (Phase 7) |
-| **Blog / Field Notes** | ⬜ Pending — `field_notes.md` written, not yet submitted to HF |
-| **Social Post** | ⬜ Pending (Phase 7) |
+| **Space** | [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai) |
+| **GitHub** | [Naazimsnh02/tutordesk_ai](https://github.com/Naazimsnh02/tutordesk_ai) |
+| **Demo Video** | ✅ [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM) |
+| **Blog / Field Notes** | ✅ [`docs/field_notes.md`](docs/field_notes.md) |
+| **Social Post** | ✅ [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212) |
 | **Track** | Track 1: Backyard AI |
 | **Total Parameters** | ~27B across all models (≤32B cap ✅) |
 
@@ -83,7 +84,7 @@ Blog post written (`field_notes.md`): *"How I built an AI teaching assistant for
 
 Covers: the 90-min prep problem, the 5-agent pipeline design, Qwen3-4B fine-tuning on NCERT data, MiniCPM-V for answer-sheet OCR, the Modal self-hosting architecture, the hardest bug, and what "Indian-style grading" actually means.
 
-⬜ **Submit to HF Field Notes** (Phase 7)
+✅ **Submitted to HF Field Notes**
 
 ---
 
@@ -123,7 +124,7 @@ Grader Agent         → answer-sheet photo → step-mark score + feedback
 | 3 | Llama Champion | `models/qwen.py _local_llm()` — Qwen3-4B GGUF Q4_K_M via llama-cpp-python |
 | 4 | Off-Brand | `frontend/theme.py` — saffron/green palette, custom CSS, pill radios, gradient header |
 | 5 | Sharing is Caring | `naazimsnh02/tutordesk-agent-traces` — per-agent JSONL traces from all pipelines |
-| 6 | Field Notes | `field_notes.md` → to be submitted to HF Field Notes |
+| 6 | Field Notes | `docs/field_notes.md` — submitted to HF Field Notes |
 
 **Community Choice** — TutorDesk AI is built around a problem that 10+ million Indian teachers face every single day. It is demonstrable to anyone who has ever received a worksheet or taken a class test. The live Space requires no setup, no account, and produces a tangible output (a printable PDF) in under 2 minutes.
 
@@ -179,10 +180,10 @@ Feature 5  Photo Auto-Grading        MiniCPM-V 4.5 + Qwen3-4B         →  Step-
 | Models ≤ 32B parameters (per-model) | ✅ largest is MiniCPM-V 4.5 at 8B |
 | Total ≤ 32B (Backyard AI spirit) | ✅ ~27B total across all 4 models |
 | Gradio UI | ✅ Custom Gradio 6, theme in `frontend/theme.py` |
-| Hosted as HF Space | ⬜ Space deploy pending (Phase 7) |
-| Demo video | ⬜ Pending (Phase 7) |
-| Social media post | ⬜ Pending (Phase 7) |
-| Submission before June 15, 2026 | ⬜ **TODAY — deadline** |
+| Hosted as HF Space | ✅ [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai) |
+| Demo video | ✅ [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM) |
+| Social media post | ✅ [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212) |
+| Submission before June 15, 2026 | ✅ Submitted June 14, 2026 |
 
 ---
 
@@ -201,14 +202,14 @@ Feature 5  Photo Auto-Grading        MiniCPM-V 4.5 + Qwen3-4B         →  Step-
 - Field Notes blog post (`field_notes.md`)
 - Model card for `naazimsnh02/tutordesk-qwen3-4b`
 
-### ⬜ Pending (Phase 7 — due TODAY June 15, 2026)
+### ✅ Phase 7 — Complete (submitted June 14, 2026)
 
-1. **Deploy HF Space** — push to `naazimsnh02/tutordesk-ai`, verify it runs
-2. **Upload agent traces** — `python data/export_traces.py` → `naazimsnh02/tutordesk-agent-traces`
-3. **Record demo video** — 2–3 min: textbook photo → pack → grading → PDF
-4. **Submit Field Notes** — paste `field_notes.md` into HF Field Notes submission form
-5. **Social post** — X / LinkedIn with Space link + demo video
-6. **Submit the hackathon form** before June 15 EOD
+1. ✅ **HF Space deployed** — [build-small-hackathon/tutordesk-ai](https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai)
+2. ✅ **Agent traces uploaded** — `naazimsnh02/tutordesk-agent-traces`
+3. ✅ **Demo video recorded & published** — [youtu.be/HBBLSwXUeaM](https://youtu.be/HBBLSwXUeaM)
+4. ✅ **Field Notes written** — `docs/field_notes.md`
+5. ✅ **Social post live** — [x.com/naazimhussain02](https://x.com/naazimhussain02/status/2066153448501072212)
+6. ✅ **Hackathon form submitted** before June 15 deadline
 
 ---
 
@@ -216,7 +217,9 @@ Feature 5  Photo Auto-Grading        MiniCPM-V 4.5 + Qwen3-4B         →  Step-
 
 | Resource | URL |
 |---|---|
-| Space | https://huggingface.co/spaces/naazimsnh02/tutordesk-ai |
+| HF Space | https://huggingface.co/spaces/build-small-hackathon/tutordesk-ai |
+| GitHub | https://github.com/Naazimsnh02/tutordesk_ai |
+| Demo Video | https://youtu.be/HBBLSwXUeaM |
+| X / Social Post | https://x.com/naazimhussain02/status/2066153448501072212 |
 | Fine-tuned model | https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b |
 | Agent traces dataset | https://huggingface.co/datasets/naazimsnh02/tutordesk-agent-traces |
-| GitHub | https://github.com/naazimsnh02/tutordesk-ai |
