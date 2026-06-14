@@ -548,6 +548,9 @@ button[class*="primary"]:active {
 #td-footer a { color: #D97706 !important; text-decoration: none !important; font-weight: 600 !important; }
 #td-footer a:hover { color: #F59E0B !important; }
 
+/* ── Hide Gradio's built-in footer bar ───────────────────────────────────── */
+footer { display: none !important; }
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     #td-header { padding: 24px 16px 20px; border-radius: 12px; }

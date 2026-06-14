@@ -35,4 +35,15 @@ def read_image(image: Image.Image, instruction: str) -> str:
         )
     buf = io.BytesIO()
     image.save(buf, format="PNG")
-    return _remote_handle().read_image.remote(buf.getvalue(), instruction)
+    try:
+        return _remote_handle().read_image.remote(buf.getvalue(), instruction)
+    except Exception as exc:
+        name = type(exc).__name__
+        msg = str(exc)
+        if "AuthError" in name or "Token missing" in msg or "Could not authenticate" in msg:
+            raise RuntimeError(
+                "Modal credentials not configured.\n\n"
+                "Go to your HF Space → Settings → Variables and secrets → New secret, "
+                "and add MODAL_TOKEN_ID and MODAL_TOKEN_SECRET from modal.com/settings."
+            ) from exc
+        raise

@@ -66,6 +66,18 @@ def _generate_local(
     return result["choices"][0]["message"]["content"]
 
 
+def _check_modal_auth(exc: Exception) -> None:
+    """Re-raise Modal AuthError as a RuntimeError with actionable guidance."""
+    name = type(exc).__name__
+    msg = str(exc)
+    if "AuthError" in name or "Token missing" in msg or "Could not authenticate" in msg:
+        raise RuntimeError(
+            "Modal credentials not configured.\n\n"
+            "Go to your HF Space → Settings → Variables and secrets → New secret, "
+            "and add MODAL_TOKEN_ID and MODAL_TOKEN_SECRET from modal.com/settings."
+        ) from exc
+
+
 def generate(
     system_prompt: str,
     user_prompt: str,
@@ -75,8 +87,12 @@ def generate(
 ) -> str:
     if CONFIG.offline:
         return _generate_local(system_prompt, user_prompt, max_new_tokens, temperature)
-    return _remote_handle().generate.remote(
-        system_prompt, user_prompt,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-    )
+    try:
+        return _remote_handle().generate.remote(
+            system_prompt, user_prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+        )
+    except Exception as exc:
+        _check_modal_auth(exc)
+        raise

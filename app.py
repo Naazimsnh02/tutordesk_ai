@@ -50,14 +50,18 @@ def run_weekly_pack(
         msg = "Please enter chapter text or use Feature 1 (Worksheet-from-Textbook) to upload a photo."
         return msg, "", "", "", "", None
 
-    pack = build_pack(
-        chapter_text,
-        grade=int(grade),
-        subject=subject,
-        question_count=int(question_count),
-        diff=difficulty,
-        language=language,
-    )
+    try:
+        pack = build_pack(
+            chapter_text,
+            grade=int(grade),
+            subject=subject,
+            question_count=int(question_count),
+            diff=difficulty,
+            language=language,
+        )
+    except Exception as exc:
+        return str(exc), "", "", "", "", None
+
     pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter=chapter_text[:60])
     return (
         pack.worksheet,
@@ -108,7 +112,7 @@ def run_from_textbook(
                 diff=difficulty,
                 language=language,
             )
-    except NotImplementedError as exc:
+    except Exception as exc:
         return str(exc), "", "", "", "", None
 
     pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter="Textbook upload")
@@ -162,7 +166,7 @@ def run_auto_grade(
             subject=subject,
             student=student,
         )
-    except NotImplementedError as exc:
+    except Exception as exc:
         return str(exc), "", None
 
     pdf_path = result.to_pdf()
@@ -184,7 +188,7 @@ def run_localize(content: str, language: str) -> tuple[str, str | None]:
         return content, None
     try:
         localized = localize(content, language=language)
-    except NotImplementedError as exc:
+    except Exception as exc:
         return str(exc), None
 
     from utils.pdf import to_pdf as _to_pdf
@@ -213,14 +217,18 @@ def run_illustrated_pack(
         msg = "Please enter chapter text."
         return msg, "", "", "", "", "", None
 
-    result = build_illustrated_pack(
-        chapter_text,
-        grade=int(grade),
-        subject=subject,
-        question_count=int(question_count),
-        diff=difficulty,
-        language=language,
-    )
+    try:
+        result = build_illustrated_pack(
+            chapter_text,
+            grade=int(grade),
+            subject=subject,
+            question_count=int(question_count),
+            diff=difficulty,
+            language=language,
+        )
+    except Exception as exc:
+        return str(exc), "", "", "", "", "", None
+
     pack = result.pack
     n = result.diagram_count
     diagram_status = (
@@ -275,7 +283,7 @@ def build_app() -> gr.Blocks:
             '<span class="td-badge">📖 Classes 6–10</span>'
             '<span class="td-badge">🔬 Math &amp; Science</span>'
             '<span class="td-badge">📋 CBSE / NCERT</span>'
-            '<span class="td-badge">🇮🇳 7 Languages</span>'
+            '<span class="td-badge">🇮🇳 EN · HI · TA</span>'
             '<span class="td-badge">⚡ Modal GPU</span>'
             '<span class="td-badge">≤ 32B Params</span>'
             '</div>'
@@ -595,7 +603,7 @@ def build_app() -> gr.Blocks:
             '<div id="td-footer">'
             '<div class="td-footer-badges">'
             '<span class="td-footer-badge">Qwen3-4B Fine-tuned</span>'
-            '<span class="td-footer-badge">MiniCPM-V 8B</span>'
+            '<span class="td-footer-badge">MiniCPM-V 4.5</span>'
             '<span class="td-footer-badge">Tiny Aya 3.35B</span>'
             '<span class="td-footer-badge">FLUX.1-schnell</span>'
             '<span class="td-footer-badge">Modal GPU</span>'
