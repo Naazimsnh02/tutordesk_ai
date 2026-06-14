@@ -1,0 +1,10 @@
+# Additional dependencies for local / Off-the-Grid mode (not needed on HF Space).
+# Install with: pip install -r requirements.txt -r requirements-local.txt
+#
+# llama-cpp-python compiles from source (~5-10 min) unless you use prebuilt wheels:
+#   pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+#
+# For GPU offload (CUDA):
+#   pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+
+llama-cpp-python>=0.3
