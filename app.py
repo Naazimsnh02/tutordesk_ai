@@ -1,810 +1,301 @@
-"""TutorDesk AI — Gradio 6 entry point (Hugging Face Space).
+"""TutorDesk AI — Gradio Server entry point (Hugging Face Space).
 
 The Space is a thin client: all heavy inference runs on Modal (serving/modal_app.py).
-Custom theme + CSS lives in frontend/theme.py (Off-Brand badge).
-In Gradio 6, theme= and css= are passed to demo.launch(), not gr.Blocks().
+The UI is a fully custom single-page frontend (static/index.html) served by gr.Server
+(FastAPI under the hood) — this claims the Off-Brand badge. Each of the 5 features posts
+to its own JSON/multipart endpoint; generated PDFs are served back via /api/download/<token>.
 """
 from __future__ import annotations
 
+import logging
+import os
+import tempfile
+import uuid
+from pathlib import Path
+from typing import Any
+
 import gradio as gr
+from fastapi import Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from config import CONFIG
-from frontend.theme import CUSTOM_CSS, theme
 from models.aya import localize
 from pipelines.auto_grade import grade_sheet
 from pipelines.illustrated_worksheet import build_illustrated_pack
 from pipelines.weekly_pack import build_pack
 from pipelines.worksheet_from_textbook import from_image, from_pdf
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
+logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+_STATIC_DIR = Path(__file__).parent / "static"
 
-def _class_choices() -> list[str]:
-    return [str(c) for c in CONFIG.classes]
-
-
-def _subject_choices() -> list[str]:
-    return list(CONFIG.subjects)
+# ── Generated-PDF registry ──────────────────────────────────────────────────────
+# Maps a short opaque token -> absolute file path of a generated PDF, so the
+# frontend can request a download without exposing temp paths.
+_PDF_REGISTRY: dict[str, str] = {}
 
 
-def _lang_choices() -> list[str]:
-    return list(CONFIG.languages)
+def _register_pdf(path: str | None) -> dict[str, str] | None:
+    """Register a generated PDF and return {token, url, name} for the frontend."""
+    if not path or not os.path.exists(path):
+        return None
+    token = uuid.uuid4().hex
+    _PDF_REGISTRY[token] = path
+    return {"token": token, "url": f"/api/download/{token}", "name": Path(path).name}
 
 
-# ---------------------------------------------------------------------------
-# Feature 2 — Weekly Teaching Pack
-# ---------------------------------------------------------------------------
+# ── Gradio Server ───────────────────────────────────────────────────────────────
 
-def run_weekly_pack(
-    grade: str,
-    subject: str,
-    chapter_text: str,
-    question_count: int,
-    difficulty: str,
-    language: str,
-) -> tuple[str, str, str, str, str, str]:
-    """Called by the Gradio button. Returns (worksheet, homework, quiz, key, note, pdf_path)."""
-    if not chapter_text.strip():
-        msg = "Please enter chapter text or use Feature 1 (Worksheet-from-Textbook) to upload a photo."
-        return msg, "", "", "", "", None
+gr.set_static_paths(paths=["static/"])
+app = gr.Server()
 
+
+# ── Static + meta routes ────────────────────────────────────────────────────────
+
+@app.get("/")
+async def homepage():
+    html = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+
+@app.get("/api/health")
+async def health():
+    return JSONResponse({"status": "ok", "offline": CONFIG.offline})
+
+
+@app.get("/api/config")
+async def get_config():
+    """Curriculum scope so the frontend dropdowns stay data-driven."""
+    langs = list(CONFIG.languages)
+    return JSONResponse({
+        "classes": [str(c) for c in CONFIG.classes],
+        "subjects": list(CONFIG.subjects),
+        "languages": langs,
+        "languages_non_en": [l for l in langs if l.lower() != "english"],
+    })
+
+
+# Gradio-client-compatible endpoint (satisfies Off-Brand + @gradio/client tooling)
+@app.api(name="health_check")
+def health_check() -> dict:
+    return {"status": "ok", "offline": CONFIG.offline}
+
+
+@app.get("/api/download/{token}")
+async def download_pdf(token: str):
+    path = _PDF_REGISTRY.get(token)
+    if not path or not os.path.exists(path):
+        return JSONResponse({"error": "File not found or expired."}, status_code=404)
+    return FileResponse(path, media_type="application/pdf", filename=Path(path).name)
+
+
+# ── Form helpers ────────────────────────────────────────────────────────────────
+
+def _err(message: str, status: int = 200) -> JSONResponse:
+    return JSONResponse({"error": message}, status_code=status)
+
+
+async def _save_upload(upload, prefix: str) -> str:
+    """Persist a Starlette UploadFile to a temp file and return its path."""
+    suffix = Path(getattr(upload, "filename", "") or "").suffix.lower() or ".jpg"
+    fd, path = tempfile.mkstemp(prefix=prefix, suffix=suffix)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(await upload.read())
+    return path
+
+
+def _pack_payload(pack, pdf_path: str | None, **extra: Any) -> dict:
+    payload = {
+        "worksheet": pack.worksheet,
+        "homework": pack.homework,
+        "quiz": pack.quiz,
+        "answer_key": pack.answer_key,
+        "parent_note": pack.parent_note,
+        "pdf": _register_pdf(pdf_path),
+    }
+    payload.update(extra)
+    return payload
+
+
+# ── Feature 2 — Weekly Teaching Pack ─────────────────────────────────────────────
+
+@app.post("/api/weekly_pack")
+async def api_weekly_pack(request: Request):
+    data = await request.json()
+    chapter_text = (data.get("chapter_text") or "").strip()
+    if not chapter_text:
+        return _err("Please enter chapter content, or use the Textbook Scan tab to upload a photo.")
     try:
         pack = build_pack(
             chapter_text,
-            grade=int(grade),
-            subject=subject,
-            question_count=int(question_count),
-            diff=difficulty,
-            language=language,
+            grade=int(data.get("grade", 8)),
+            subject=data.get("subject", "Science"),
+            question_count=int(data.get("question_count", 20)),
+            diff=data.get("difficulty", "Medium"),
+            language=data.get("language", "English"),
         )
-    except Exception as exc:
-        return str(exc), "", "", "", "", None
+        pdf_path = pack.to_pdf(
+            grade=int(data.get("grade", 8)),
+            subject=data.get("subject", "Science"),
+            chapter=chapter_text[:60],
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("weekly_pack failed")
+        return _err(str(exc))
+    return JSONResponse(_pack_payload(pack, pdf_path))
 
-    pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter=chapter_text[:60])
-    return (
-        pack.worksheet,
-        pack.homework,
-        pack.quiz,
-        pack.answer_key,
-        pack.parent_note,
-        pdf_path,
+
+# ── Feature 1 — Worksheet-from-Textbook ──────────────────────────────────────────
+
+@app.post("/api/textbook")
+async def api_textbook(request: Request):
+    form = await request.form()
+    photo = form.get("photo")
+    pdf_file = form.get("pdf")
+    has_photo = photo is not None and hasattr(photo, "read")
+    has_pdf = pdf_file is not None and hasattr(pdf_file, "read")
+    if not has_photo and not has_pdf:
+        return _err("Please upload a textbook photo or PDF.")
+
+    grade = int(form.get("grade", 8))
+    subject = form.get("subject", "Science")
+    kwargs = dict(
+        grade=grade,
+        subject=subject,
+        question_count=int(form.get("question_count", 20)),
+        diff=form.get("difficulty", "Medium"),
+        language=form.get("language", "English"),
     )
 
-
-# ---------------------------------------------------------------------------
-# Feature 1 — Worksheet-from-Textbook
-# ---------------------------------------------------------------------------
-
-def run_from_textbook(
-    photo,
-    pdf_file,
-    grade: str,
-    subject: str,
-    question_count: int,
-    difficulty: str,
-    language: str,
-) -> tuple[str, str, str, str, str, str]:
-    """Called by the Gradio button. Accepts either a photo (PIL) or a PDF file path."""
-    if photo is None and pdf_file is None:
-        msg = "Please upload a textbook photo or PDF."
-        return msg, "", "", "", "", None
-
+    tmp_path = None
     try:
-        if photo is not None:
+        if has_photo:
             from PIL import Image as PILImage
-            img = PILImage.fromarray(photo) if not hasattr(photo, "save") else photo
-            pack = from_image(
-                img,
-                grade=int(grade),
-                subject=subject,
-                question_count=int(question_count),
-                diff=difficulty,
-                language=language,
-            )
+            tmp_path = await _save_upload(photo, "td_tb_")
+            img = PILImage.open(tmp_path).convert("RGB")
+            pack = from_image(img, **kwargs)
         else:
-            pack = from_pdf(
-                pdf_file,
-                grade=int(grade),
-                subject=subject,
-                question_count=int(question_count),
-                diff=difficulty,
-                language=language,
-            )
-    except Exception as exc:
-        return str(exc), "", "", "", "", None
-
-    pdf_path = pack.to_pdf(grade=int(grade), subject=subject, chapter="Textbook upload")
-    return (
-        pack.worksheet,
-        pack.homework,
-        pack.quiz,
-        pack.answer_key,
-        pack.parent_note,
-        pdf_path,
-    )
+            tmp_path = await _save_upload(pdf_file, "td_tb_")
+            pack = from_pdf(tmp_path, **kwargs)
+        pdf_path = pack.to_pdf(grade=grade, subject=subject, chapter="Textbook upload")
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("textbook failed")
+        return _err(str(exc))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return JSONResponse(_pack_payload(pack, pdf_path))
 
 
-# ---------------------------------------------------------------------------
-# Feature 5 — Photo Auto-Grading
-# ---------------------------------------------------------------------------
+# ── Feature 5 — Photo Auto-Grading ───────────────────────────────────────────────
 
-_SCHEME_PLACEHOLDER = (
-    "Q1 [3 marks]: Model answer for question 1\n"
-    "Q2 [5 marks]:\n"
-    "  Step 1 (1 mark): First step expected\n"
-    "  Step 2 (2 marks): Second step expected\n"
-    "  Step 3 (2 marks): Final answer expected\n"
-    "Q3 [2 marks]: Model answer for question 3"
-)
+@app.post("/api/auto_grade")
+async def api_auto_grade(request: Request):
+    form = await request.form()
+    photo = form.get("photo")
+    if photo is None or not hasattr(photo, "read"):
+        return _err("Please upload a photo of the student's answer sheet.")
+    marking_scheme = (form.get("marking_scheme") or "").strip()
+    if not marking_scheme:
+        return _err("Please enter the marking scheme using the Q[N marks] template.")
 
-
-def run_auto_grade(
-    photo,
-    marking_scheme: str,
-    student_name: str,
-    grade: str,
-    subject: str,
-) -> tuple[str, str, str | None]:
-    """Called by the Gradio button. Returns (grade_summary_md, parent_note, pdf_path)."""
-    if photo is None:
-        return "Please upload a photo of the student's answer sheet.", "", None
-    if not marking_scheme.strip():
-        return "Please enter the marking scheme using the Q[N marks] template.", "", None
-
-    from PIL import Image as PILImage
-
-    img = PILImage.fromarray(photo) if not hasattr(photo, "save") else photo
-    student = student_name.strip() or "Student"
-
+    tmp_path = None
     try:
+        from PIL import Image as PILImage
+        tmp_path = await _save_upload(photo, "td_ag_")
+        img = PILImage.open(tmp_path).convert("RGB")
         result = grade_sheet(
             img,
             marking_scheme=marking_scheme,
-            grade=int(grade),
-            subject=subject,
-            student=student,
+            grade=int(form.get("grade", 8)),
+            subject=form.get("subject", "Science"),
+            student=(form.get("student") or "Student").strip() or "Student",
         )
-    except Exception as exc:
-        return str(exc), "", None
+        pdf_path = result.to_pdf()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("auto_grade failed")
+        return _err(str(exc))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return JSONResponse({
+        "summary": result.summary_markdown(),
+        "parent_note": result.parent_note,
+        "percentage": result.percentage(),
+        "total_awarded": result.total_awarded,
+        "total_marks": result.total_marks,
+        "pdf": _register_pdf(pdf_path),
+    })
 
-    pdf_path = result.to_pdf()
-    return result.summary_markdown(), result.parent_note, pdf_path
 
+# ── Feature 3 — Regional Language (Tiny Aya) ─────────────────────────────────────
 
-# ---------------------------------------------------------------------------
-# Feature 3 — Regional Language (Tiny Aya)
-# ---------------------------------------------------------------------------
-
-_LANG_CHOICES_NON_EN = [l for l in CONFIG.languages if l.lower() != "english"]
-
-
-def run_localize(content: str, language: str) -> tuple[str, str | None]:
-    """Translate `content` to `language` via Tiny Aya. Returns (localized_text, pdf_path)."""
-    if not content.strip():
-        return "Please paste some content to translate.", None
-    if language.lower() == "english":
-        return content, None
+@app.post("/api/translate")
+async def api_translate(request: Request):
+    data = await request.json()
+    content = (data.get("content") or "").strip()
+    language = data.get("language", "Hindi")
+    if not content:
+        return _err("Please paste some content to translate.")
     try:
-        localized = localize(content, language=language)
-    except Exception as exc:
-        return str(exc), None
+        if language.lower() == "english":
+            translated = content
+            pdf = None
+        else:
+            translated = localize(content, language=language)
+            from utils.pdf import to_pdf as _to_pdf
+            pdf_path = _to_pdf(
+                title=f"TutorDesk AI — {language} Output",
+                subtitle="Translated by Tiny Aya (CohereLabs/tiny-aya-fire)",
+                body=translated,
+            )
+            pdf = _register_pdf(pdf_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("translate failed")
+        return _err(str(exc))
+    return JSONResponse({"translated": translated, "pdf": pdf})
 
-    from utils.pdf import to_pdf as _to_pdf
-    pdf_path = _to_pdf(
-        title=f"TutorDesk AI — {language} Output",
-        subtitle="Translated by Tiny Aya (CohereLabs/tiny-aya-fire)",
-        body=localized,
-    )
-    return localized, pdf_path
 
+# ── Feature 4 — Illustrated Worksheets (FLUX.1-schnell) ──────────────────────────
 
-# ---------------------------------------------------------------------------
-# Feature 4 — Illustrated Worksheets (FLUX.1-schnell)
-# ---------------------------------------------------------------------------
-
-def run_illustrated_pack(
-    grade: str,
-    subject: str,
-    chapter_text: str,
-    question_count: int,
-    difficulty: str,
-    language: str,
-) -> tuple[str, str, str, str, str, str, str]:
-    """Returns (worksheet, homework, quiz, key, note, diagram_status, pdf_path)."""
-    if not chapter_text.strip():
-        msg = "Please enter chapter text."
-        return msg, "", "", "", "", "", None
-
+@app.post("/api/illustrated")
+async def api_illustrated(request: Request):
+    data = await request.json()
+    chapter_text = (data.get("chapter_text") or "").strip()
+    if not chapter_text:
+        return _err("Please enter chapter content.")
     try:
         result = build_illustrated_pack(
             chapter_text,
-            grade=int(grade),
-            subject=subject,
-            question_count=int(question_count),
-            diff=difficulty,
-            language=language,
+            grade=int(data.get("grade", 8)),
+            subject=data.get("subject", "Science"),
+            question_count=int(data.get("question_count", 20)),
+            diff=data.get("difficulty", "Medium"),
+            language=data.get("language", "English"),
         )
-    except Exception as exc:
-        return str(exc), "", "", "", "", "", None
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("illustrated failed")
+        return _err(str(exc))
 
-    pack = result.pack
     n = result.diagram_count
     diagram_status = (
-        f"{n} diagram(s) generated and embedded in PDF."
+        f"{n} diagram(s) generated and embedded in the PDF."
         if n > 0
         else "No diagrams generated (FLUX unavailable or offline — text-only PDF)."
     )
-    return (
-        pack.worksheet,
-        pack.homework,
-        pack.quiz,
-        pack.answer_key,
-        pack.parent_note,
-        diagram_status,
-        result.pdf_path,
-    )
+    return JSONResponse(_pack_payload(
+        result.pack, result.pdf_path, diagram_status=diagram_status, diagram_count=n,
+    ))
 
 
-# ---------------------------------------------------------------------------
-# HTML snippet helpers
-# ---------------------------------------------------------------------------
-
-def _banner(icon: str, title: str, desc: str) -> str:
-    return (
-        f'<div class="feature-banner">'
-        f'<strong>{icon} {title}</strong> — {desc}'
-        f'</div>'
-    )
-
-
-_DIVIDER = '<hr class="td-divider">'
-_OUTPUT_LABEL = '<div class="td-output-label">Generated Output</div>'
-
-
-# ---------------------------------------------------------------------------
-# Custom loading card + visibility toggles
-#
-# Instead of letting Gradio paint its default spinner / "processing | 12.3s"
-# meta-text on the output cards, we hide the result cards entirely while a job
-# runs and show a fully custom animated pipeline card in their place. The click
-# handlers are chained: _show_loading → run_* → _show_results.
-# ---------------------------------------------------------------------------
-
-def _loading_html(title: str, steps: list[str], accent: str = "amber") -> str:
-    """Build the custom animated loading card for a feature pipeline."""
-    items = "".join(
-        f'<li class="td-load-step" style="--i:{i}">'
-        f'<span class="td-load-tick"></span>'
-        f'<span class="td-load-step-label">{s}</span>'
-        f'</li>'
-        for i, s in enumerate(steps)
-    )
-    return (
-        f'<div class="td-loading td-loading--{accent}">'
-        f'  <div class="td-loading-stage">'
-        f'    <div class="td-loading-orbit">'
-        f'      <span class="td-orbit-ring"></span>'
-        f'      <span class="td-orbit-dot d1"></span>'
-        f'      <span class="td-orbit-dot d2"></span>'
-        f'      <span class="td-orbit-dot d3"></span>'
-        f'      <span class="td-loading-core">📚</span>'
-        f'    </div>'
-        f'  </div>'
-        f'  <div class="td-loading-body">'
-        f'    <div class="td-loading-title">{title}</div>'
-        f'    <div class="td-loading-sub">Running on Modal GPUs · cold start can take up to a minute</div>'
-        f'    <ul class="td-load-steps">{items}</ul>'
-        f'    <div class="td-load-bar"><span></span></div>'
-        f'  </div>'
-        f'</div>'
-    )
-
-
-def _show_loading():
-    """Reveal the custom loading card, hide the (stale) results card."""
-    return gr.update(visible=True), gr.update(visible=False)
-
-
-def _show_results():
-    """Hide the loading card, reveal the freshly-generated results card."""
-    return gr.update(visible=False), gr.update(visible=True)
-
-
-# ---------------------------------------------------------------------------
-# Combined pipeline + reveal functions
-#
-# Gradio's chained .then() dispatches each step as a separate SSE event.
-# When step 2 (pipeline) writes into components whose parent Column is
-# visible=False, the browser hasn't mounted those components yet (first run),
-# so the data is silently dropped. The fix: merge the pipeline return value
-# with the visibility flip into ONE event so content and reveal land together.
-# ---------------------------------------------------------------------------
-
-def _run_weekly_pack_combined(grade, subject, chapter_text, question_count, difficulty, language):
-    results = run_weekly_pack(grade, subject, chapter_text, question_count, difficulty, language)
-    return (gr.update(visible=False), gr.update(visible=True)) + results
-
-
-def _run_from_textbook_combined(photo, pdf_file, grade, subject, question_count, difficulty, language):
-    results = run_from_textbook(photo, pdf_file, grade, subject, question_count, difficulty, language)
-    return (gr.update(visible=False), gr.update(visible=True)) + results
-
-
-def _run_auto_grade_combined(photo, marking_scheme, student_name, grade, subject):
-    results = run_auto_grade(photo, marking_scheme, student_name, grade, subject)
-    return (gr.update(visible=False), gr.update(visible=True)) + results
-
-
-def _run_localize_combined(content, language):
-    results = run_localize(content, language)
-    return (gr.update(visible=False), gr.update(visible=True)) + results
-
-
-def _run_illustrated_pack_combined(grade, subject, chapter_text, question_count, difficulty, language):
-    results = run_illustrated_pack(grade, subject, chapter_text, question_count, difficulty, language)
-    return (gr.update(visible=False), gr.update(visible=True)) + results
-
-
-# ---------------------------------------------------------------------------
-# App layout
-# ---------------------------------------------------------------------------
-
-def build_app() -> gr.Blocks:
-    with gr.Blocks(title="TutorDesk AI") as demo:
-
-        # ── Header ──────────────────────────────────────────────────────────
-        gr.HTML(
-            '<div id="td-header">'
-            '<span class="td-icon">📚</span>'
-            '<h1>TutorDesk AI</h1>'
-            '<p class="td-tagline">'
-            'AI copilot for Indian tuition teachers &nbsp;·&nbsp; '
-            '90 min/day of prep → under 10'
-            '</p>'
-            '<div class="td-badges">'
-            '<span class="td-badge">📖 Classes 6–10</span>'
-            '<span class="td-badge">🔬 Math &amp; Science</span>'
-            '<span class="td-badge">📋 CBSE / NCERT</span>'
-            '<span class="td-badge">EN · HI · TA</span>'
-            '<span class="td-badge">⚡ Modal GPU</span>'
-            '<span class="td-badge">≤ 32B Params</span>'
-            '</div>'
-            '</div>'
-        )
-
-        with gr.Tabs():
-
-            # ── Feature 2: Weekly Teaching Pack ──────────────────────────
-            with gr.Tab("📅 Weekly Pack"):
-                gr.HTML(_banner(
-                    "📅", "Weekly Teaching Pack",
-                    "Enter chapter content and get a full teaching pack — "
-                    "worksheet, homework, quiz, answer key, and parent note — in one click."
-                ))
-                with gr.Row(elem_classes=["td-main-row"]):
-                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
-                        grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class", elem_id="wp-grade"
-                        )
-                        subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject", elem_id="wp-subject"
-                        )
-                        language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language", elem_id="wp-lang"
-                        )
-                        question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Questions", elem_id="wp-count"
-                        )
-                        difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
-                            elem_id="wp-diff", elem_classes=["radio-group"],
-                        )
-                    with gr.Column(scale=2, elem_classes=["content-panel"]):
-                        chapter_text = gr.Textbox(
-                            label="Chapter Content",
-                            placeholder="Paste chapter text here, or use the Textbook Scan tab to upload a photo.",
-                            lines=10,
-                            elem_id="wp-chapter",
-                        )
-
-                gr.HTML(_DIVIDER)
-                generate_btn = gr.Button("✨ Generate Teaching Pack", variant="primary", elem_id="wp-btn")
-
-                wp_loading = gr.HTML(
-                    _loading_html(
-                        "Building your weekly teaching pack…",
-                        [
-                            "Analysing chapter & curriculum",
-                            "Generating questions",
-                            "Calibrating difficulty",
-                            "Writing answer key & parent note",
-                            "Assembling print-ready PDF",
-                        ],
-                    ),
-                    visible=False,
-                    elem_classes=["td-loading-wrap"],
-                )
-
-                with gr.Column(visible=False, elem_classes=["td-results"]) as wp_results:
-                    gr.HTML(_OUTPUT_LABEL)
-                    with gr.Tabs():
-                        with gr.Tab("📝 Worksheet"):
-                            worksheet_out = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("📚 Homework"):
-                            homework_out = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("❓ Quiz"):
-                            quiz_out = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("🔑 Answer Key"):
-                            key_out = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("👨‍👩‍👧 Parent Note"):
-                            note_out = gr.Markdown(elem_classes=["output-markdown"])
-
-                    pdf_out = gr.File(
-                        label="⬇️ Download PDF — all sections",
-                        elem_classes=["td-pdf-download"],
-                    )
-
-                generate_btn.click(
-                    fn=_show_loading, inputs=None, outputs=[wp_loading, wp_results],
-                    show_progress="hidden",
-                ).then(
-                    fn=_run_weekly_pack_combined,
-                    inputs=[grade, subject, chapter_text, question_count, difficulty, language],
-                    outputs=[wp_loading, wp_results, worksheet_out, homework_out, quiz_out, key_out, note_out, pdf_out],
-                    show_progress="hidden",
-                )
-
-            # ── Feature 1: Worksheet-from-Textbook ───────────────────────
-            with gr.Tab("📷 Textbook Scan"):
-                gr.HTML(_banner(
-                    "📷", "Worksheet from Textbook",
-                    "Photograph a textbook chapter or upload a PDF — "
-                    "<strong>MiniCPM-V</strong> (OpenBMB) reads it and auto-generates your full teaching pack."
-                ))
-                with gr.Row(elem_classes=["td-main-row"]):
-                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
-                        tb_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class", elem_id="tb-grade"
-                        )
-                        tb_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject", elem_id="tb-subject"
-                        )
-                        tb_language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language", elem_id="tb-lang"
-                        )
-                        tb_question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Questions", elem_id="tb-count"
-                        )
-                        tb_difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
-                            elem_id="tb-diff", elem_classes=["radio-group"],
-                        )
-                    with gr.Column(scale=2, elem_classes=["content-panel"]):
-                        tb_photo = gr.Image(
-                            label="Textbook Photo (camera or upload)",
-                            type="pil",
-                            elem_id="tb-photo",
-                        )
-                        tb_pdf = gr.File(
-                            label="Or upload a PDF",
-                            file_types=[".pdf"],
-                            elem_id="tb-pdf-in",
-                        )
-
-                gr.HTML(_DIVIDER)
-                tb_btn = gr.Button(
-                    "🔍 Extract & Generate Teaching Pack", variant="primary", elem_id="tb-btn"
-                )
-
-                tb_loading = gr.HTML(
-                    _loading_html(
-                        "Reading your textbook & building the pack…",
-                        [
-                            "MiniCPM-V reading your photo / PDF",
-                            "Extracting chapter concepts",
-                            "Generating questions & answer key",
-                            "Writing parent note",
-                            "Assembling print-ready PDF",
-                        ],
-                    ),
-                    visible=False,
-                    elem_classes=["td-loading-wrap"],
-                )
-
-                with gr.Column(visible=False, elem_classes=["td-results"]) as tb_results:
-                    gr.HTML(_OUTPUT_LABEL)
-                    with gr.Tabs():
-                        with gr.Tab("📝 Worksheet"):
-                            tb_worksheet = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("📚 Homework"):
-                            tb_homework = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("❓ Quiz"):
-                            tb_quiz = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("🔑 Answer Key"):
-                            tb_key = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("👨‍👩‍👧 Parent Note"):
-                            tb_note = gr.Markdown(elem_classes=["output-markdown"])
-
-                    tb_pdf_out = gr.File(
-                        label="⬇️ Download PDF — all sections",
-                        elem_classes=["td-pdf-download"],
-                    )
-
-                tb_btn.click(
-                    fn=_show_loading, inputs=None, outputs=[tb_loading, tb_results],
-                    show_progress="hidden",
-                ).then(
-                    fn=_run_from_textbook_combined,
-                    inputs=[
-                        tb_photo, tb_pdf,
-                        tb_grade, tb_subject, tb_question_count, tb_difficulty, tb_language,
-                    ],
-                    outputs=[tb_loading, tb_results, tb_worksheet, tb_homework, tb_quiz, tb_key, tb_note, tb_pdf_out],
-                    show_progress="hidden",
-                )
-
-            # ── Feature 5: Photo Auto-Grading ────────────────────────────
-            with gr.Tab("✏️ Auto-Grade"):
-                gr.HTML(_banner(
-                    "✏️", "Photo Auto-Grading",
-                    "Photograph a student's filled answer sheet. "
-                    "<strong>MiniCPM-V</strong> reads the answers; the fine-tuned "
-                    "<strong>Qwen3-4B</strong> grades them Indian-style — "
-                    "step marks, partial credit, CBSE conventions."
-                ))
-                with gr.Row(elem_classes=["td-main-row"]):
-                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
-                        ag_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class", elem_id="ag-grade"
-                        )
-                        ag_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject", elem_id="ag-subject"
-                        )
-                        ag_student = gr.Textbox(
-                            label="Student Name",
-                            placeholder="e.g. Priya Sharma",
-                            elem_id="ag-student",
-                        )
-                    with gr.Column(scale=2, elem_classes=["content-panel"]):
-                        ag_photo = gr.Image(
-                            label="Answer Sheet Photo (camera or upload)",
-                            type="pil",
-                            elem_id="ag-photo",
-                        )
-
-                ag_scheme = gr.Textbox(
-                    label="Marking Scheme",
-                    placeholder=_SCHEME_PLACEHOLDER,
-                    lines=8,
-                    info="Use Q<n> [<marks> marks]: format. One line per question minimum.",
-                    elem_id="ag-scheme",
-                )
-
-                gr.HTML(_DIVIDER)
-                ag_btn = gr.Button("🎯 Grade Answer Sheet", variant="primary", elem_id="ag-btn")
-
-                ag_loading = gr.HTML(
-                    _loading_html(
-                        "Grading the answer sheet…",
-                        [
-                            "MiniCPM-V reading the answer sheet",
-                            "Qwen3-4B grading Indian-style",
-                            "Tallying step marks & partial credit",
-                            "Writing report & parent note",
-                        ],
-                        accent="green",
-                    ),
-                    visible=False,
-                    elem_classes=["td-loading-wrap"],
-                )
-
-                with gr.Column(visible=False, elem_classes=["td-results"]) as ag_results:
-                    gr.HTML('<div class="td-output-label">Grading Results</div>')
-                    ag_summary = gr.Markdown(
-                        elem_id="ag-summary",
-                        elem_classes=["output-markdown"],
-                    )
-                    ag_note = gr.Textbox(
-                        label="Parent Note",
-                        lines=4,
-                        interactive=False,
-                        elem_id="ag-note",
-                    )
-                    ag_pdf = gr.File(
-                        label="⬇️ Download Grade Report (PDF)",
-                        elem_classes=["td-pdf-download"],
-                    )
-
-                ag_btn.click(
-                    fn=_show_loading, inputs=None, outputs=[ag_loading, ag_results],
-                    show_progress="hidden",
-                ).then(
-                    fn=_run_auto_grade_combined,
-                    inputs=[ag_photo, ag_scheme, ag_student, ag_grade, ag_subject],
-                    outputs=[ag_loading, ag_results, ag_summary, ag_note, ag_pdf],
-                    show_progress="hidden",
-                )
-
-            # ── Feature 3: Regional Language ─────────────────────────────
-            with gr.Tab("🌐 Translate"):
-                gr.HTML(_banner(
-                    "🌐", "Regional Language",
-                    "Translate any teaching content into your regional language using "
-                    "<strong>Tiny Aya</strong> (CohereLabs/tiny-aya-fire, 3.35 B, South-Asian-tuned). "
-                    "Paste output from any other tab, choose a language, and download."
-                ))
-                rl_language = gr.Dropdown(
-                    _LANG_CHOICES_NON_EN,
-                    value=_LANG_CHOICES_NON_EN[0] if _LANG_CHOICES_NON_EN else "Hindi",
-                    label="Target Language",
-                    elem_id="rl-lang",
-                )
-                rl_content = gr.Textbox(
-                    label="Content to Translate",
-                    placeholder="Paste worksheet, quiz, parent note, or any teaching content here…",
-                    lines=12,
-                    elem_id="rl-content",
-                )
-                gr.HTML(_DIVIDER)
-                rl_btn = gr.Button("🌐 Translate with Tiny Aya", variant="primary", elem_id="rl-btn")
-
-                rl_loading = gr.HTML(
-                    _loading_html(
-                        "Translating with Tiny Aya…",
-                        [
-                            "Tiny Aya translating your content",
-                            "Preserving formatting & subject terms",
-                            "Building translated PDF",
-                        ],
-                        accent="green",
-                    ),
-                    visible=False,
-                    elem_classes=["td-loading-wrap"],
-                )
-
-                with gr.Column(visible=False, elem_classes=["td-results"]) as rl_results:
-                    gr.HTML('<div class="td-output-label">Translated Output</div>')
-                    rl_out = gr.Textbox(
-                        label="Translated Output",
-                        lines=12,
-                        interactive=False,
-                        elem_id="rl-out",
-                    )
-                    rl_pdf = gr.File(
-                        label="⬇️ Download Translated PDF",
-                        elem_classes=["td-pdf-download"],
-                    )
-
-                rl_btn.click(
-                    fn=_show_loading, inputs=None, outputs=[rl_loading, rl_results],
-                    show_progress="hidden",
-                ).then(
-                    fn=_run_localize_combined,
-                    inputs=[rl_content, rl_language],
-                    outputs=[rl_loading, rl_results, rl_out, rl_pdf],
-                    show_progress="hidden",
-                )
-
-            # ── Feature 4: Illustrated Worksheets ────────────────────────
-            with gr.Tab("🎨 Illustrated"):
-                gr.HTML(_banner(
-                    "🎨", "Illustrated Worksheets",
-                    "Generate a full teaching pack <strong>with labeled diagrams</strong> embedded in the PDF. "
-                    "Qwen3-4B identifies key concepts; "
-                    "<strong>FLUX.1-schnell</strong> (Black Forest Labs) generates the images."
-                ))
-                with gr.Row(elem_classes=["td-main-row"]):
-                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
-                        il_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class", elem_id="il-grade"
-                        )
-                        il_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject", elem_id="il-subject"
-                        )
-                        il_language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language", elem_id="il-lang"
-                        )
-                        il_question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Questions", elem_id="il-count"
-                        )
-                        il_difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
-                            elem_id="il-diff", elem_classes=["radio-group"],
-                        )
-                    with gr.Column(scale=2, elem_classes=["content-panel"]):
-                        il_chapter_text = gr.Textbox(
-                            label="Chapter Content",
-                            placeholder="Paste chapter text here…",
-                            lines=10,
-                            elem_id="il-chapter",
-                        )
-
-                gr.HTML(_DIVIDER)
-                il_btn = gr.Button(
-                    "🎨 Generate Illustrated Pack", variant="primary", elem_id="il-btn"
-                )
-
-                il_loading = gr.HTML(
-                    _loading_html(
-                        "Generating your illustrated pack…",
-                        [
-                            "Building the teaching pack",
-                            "Identifying key concepts to illustrate",
-                            "FLUX.1-schnell drawing diagrams",
-                            "Embedding diagrams into the PDF",
-                        ],
-                    ),
-                    visible=False,
-                    elem_classes=["td-loading-wrap"],
-                )
-
-                with gr.Column(visible=False, elem_classes=["td-results"]) as il_results:
-                    il_diagram_status = gr.Textbox(
-                        label="Diagram Status",
-                        interactive=False,
-                        lines=1,
-                        elem_id="il-status",
-                    )
-                    gr.HTML(_OUTPUT_LABEL)
-                    with gr.Tabs():
-                        with gr.Tab("📝 Worksheet"):
-                            il_worksheet = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("📚 Homework"):
-                            il_homework = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("❓ Quiz"):
-                            il_quiz = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("🔑 Answer Key"):
-                            il_key = gr.Markdown(elem_classes=["output-markdown"])
-                        with gr.Tab("👨‍👩‍👧 Parent Note"):
-                            il_note = gr.Markdown(elem_classes=["output-markdown"])
-
-                    il_pdf = gr.File(
-                        label="⬇️ Download Illustrated PDF (diagrams embedded)",
-                        elem_classes=["td-pdf-download"],
-                    )
-
-                il_btn.click(
-                    fn=_show_loading, inputs=None, outputs=[il_loading, il_results],
-                    show_progress="hidden",
-                ).then(
-                    fn=_run_illustrated_pack_combined,
-                    inputs=[
-                        il_grade, il_subject, il_chapter_text,
-                        il_question_count, il_difficulty, il_language,
-                    ],
-                    outputs=[
-                        il_loading, il_results,
-                        il_worksheet, il_homework, il_quiz,
-                        il_key, il_note, il_diagram_status, il_pdf,
-                    ],
-                    show_progress="hidden",
-                )
-
-        # ── Footer ───────────────────────────────────────────────────────────
-        gr.HTML(
-            '<div id="td-footer">'
-            '<div class="td-footer-badges">'
-            '<span class="td-footer-badge">Qwen3-4B Fine-tuned</span>'
-            '<span class="td-footer-badge">MiniCPM-V 4.5</span>'
-            '<span class="td-footer-badge">Tiny Aya 3.35B</span>'
-            '<span class="td-footer-badge">FLUX.1-schnell</span>'
-            '<span class="td-footer-badge">Modal GPU</span>'
-            '<span class="td-footer-badge">Build Small Hackathon 2026</span>'
-            '</div>'
-            '<div class="td-footer-text">'
-            'Built with ❤️ for Indian teachers &nbsp;·&nbsp; '
-            '<a href="https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b" target="_blank">'
-            'Fine-tuned Qwen3-4B</a> &nbsp;·&nbsp; '
-            'Powered by Modal, MiniCPM-V, Tiny Aya &amp; FLUX.1-schnell'
-            '</div>'
-            '</div>'
-        )
-
-    return demo
-
+# ── Launch ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Gradio 6: theme= and css= go in launch(), not gr.Blocks()
-    build_app().launch(theme=theme, css=CUSTOM_CSS)
+    app.launch(show_error=True)

@@ -67,8 +67,8 @@ Last updated: 2026-06-14 (Phases 4 + 5 + 6 complete + UI redesign)
 ## Phase 6 — Badge layer & polish
 - ✅ Local mode via llama.cpp (**Off the Grid + Llama Champion**) — `models/qwen.py` `_local_llm()`, `QWEN_GGUF_PATH` + `GGUF_N_GPU_LAYERS` in config; `llama-cpp-python>=0.3` added to requirements; offline path calls `create_chat_completion` with chatml format
 - ✅ `traces/` capture + publish HF dataset (**Sharing is Caring**) — `data/export_traces.py` reads `traces/raw/agent_traces.jsonl` and pushes to `naazimsnh02/tutordesk-agent-traces`
-- ✅ Custom `gr.Theme` frontend (**Off-Brand**) — `frontend/theme.py`: saffron/green palette, Plus Jakarta Sans, branded CSS; wired into `app.py` via Gradio 6 `demo.launch(theme=, css=)` API
-- ✅ Full UI redesign — rich gradient header with badges, pill radio buttons, settings/content panel cards, per-feature info banners, output section labels, dividers, green-accented PDF downloads, footer with model badges; elem_id + elem_classes on every component
+- ✅ Fully custom frontend (**Off-Brand**) — `app.py` now uses `gr.Server` (FastAPI) serving a hand-written single-page UI `static/index.html`; each of the 5 features posts to its own JSON/multipart endpoint, PDFs served via `/api/download/<token>`; `@app.api("health_check")` kept for gradio-client compat. Replaces the old `gr.Blocks` + `frontend/theme.py` approach (deleted). Pins `gradio==6.16.0`.
+- ✅ Full UI redesign — saffron/green design-token CSS carried over from the old theme; gradient header w/ badges, JS feature-nav + output sub-tabs, pill radios, drag-drop dropzones w/ image preview, animated orbit loading card, marked.js markdown rendering, green-accented grade/PDF panels, footer with model badges
 - ✅ Field Notes blog post — `field_notes.md` (submit to HF Field Notes)
 - ✅ **Exit:** all badges claimable, app polished
 
@@ -102,7 +102,7 @@ Last updated: 2026-06-14 (Phases 4 + 5 + 6 complete + UI redesign)
 | Sharing is Caring | ✅ ready | `data/export_traces.py` → push to HF dataset |
 | Off the Grid | ✅ ready | `TUTORDESK_OFFLINE=1` + `QWEN_GGUF_PATH` → llama.cpp |
 | Llama Champion | ✅ ready | Qwen3-4B via llama.cpp GGUF |
-| Off-Brand | ✅ ready | `frontend/theme.py` — saffron palette, Noto Sans, custom CSS |
+| Off-Brand | ✅ ready | `gr.Server` (FastAPI) + custom `static/index.html` single-page frontend |
 | Best Demo | ⬜ | Demo video needed (Phase 7) |
 | Field Notes | ✅ ready | `field_notes.md` — submit to HF Field Notes |
 

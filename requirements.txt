@@ -1,5 +1,5 @@
 # Core app
-gradio>=6.0
+gradio==6.16.0       # gr.Server (FastAPI) for the custom frontend (Off-Brand)
 python-dotenv>=1.0
 
 # Models / inference

@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TutorDesk AI — Copilot for Indian Tuition Teachers</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* ── Design tokens (carried over from the original amber theme) ─────────── */
+    :root {
+      --bg-base:    #0F0D09;
+      --bg-card:    #1C1814;
+      --bg-card-2:  #181510;
+      --bg-input:   #141210;
+      --border:     #3A3020;
+      --border-dim: #2A2218;
+      --border-2:   #2E2818;
+      --saffron:    #F59E0B;
+      --saffron-2:  #D97706;
+      --saffron-3:  #B45309;
+      --amber-lbl:  #FCD34D;
+      --green:      #059669;
+      --green-2:    #10B981;
+      --green-3:    #34D399;
+      --green-bg:   #0C1C14;
+      --green-bd:   #1E4A38;
+      --text:       #E7E5E0;
+      --text-mid:   #C8B890;
+      --text-muted: #8A7A5C;
+      --text-dim:   #5C5040;
+      --white:      #FFFFFF;
+      --radius:     12px;
+      --radius-sm:  8px;
+      --transition: 0.16s ease;
+      --maxw:       1080px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      background: var(--bg-base);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    a { color: var(--saffron-2); text-decoration: none; }
+    a:hover { color: var(--saffron); }
+
+    .shell { max-width: var(--maxw); margin: 0 auto; padding: 18px 22px 48px; }
+
+    /* ── Header ─────────────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 55%, #059669 100%);
+      border-radius: 18px;
+      padding: 32px 40px 26px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(245,158,11,0.22), 0 2px 16px rgba(0,0,0,0.5);
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+    }
+    .hero::after {
+      content: ''; position: absolute; bottom: -70px; left: -40px;
+      width: 240px; height: 240px; border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+    }
+    .hero-icon { font-size: 2.7rem; line-height: 1; position: relative; z-index: 1; }
+    .hero h1 {
+      color: var(--white); font-size: 2.3rem; font-weight: 800;
+      letter-spacing: -1.2px; margin: 6px 0 6px;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.2); position: relative; z-index: 1;
+    }
+    .hero-tagline {
+      color: rgba(255,255,255,0.92); font-size: 0.98rem; font-weight: 500;
+      margin-bottom: 16px; position: relative; z-index: 1;
+    }
+    .hero-badges {
+      display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+      position: relative; z-index: 1;
+    }
+    .hero-badge {
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.28);
+      color: var(--white); border-radius: 100px;
+      padding: 4px 13px; font-size: 0.76rem; font-weight: 600;
+    }
+    .models-badge {
+      position: absolute; top: 16px; right: 18px; z-index: 2;
+      font-size: 0.7rem; font-weight: 700; padding: 4px 11px; border-radius: 100px;
+      background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35);
+      color: var(--white); letter-spacing: 0.3px;
+    }
+
+    /* ── Feature nav ────────────────────────────────────────────────────────── */
+    .nav {
+      display: flex; gap: 5px; margin: 18px 0 16px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 6px; overflow-x: auto;
+    }
+    .nav button {
+      flex: 1 0 auto; white-space: nowrap;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-muted); font-weight: 600; font-size: 0.85rem;
+      font-family: inherit; padding: 10px 16px; border-radius: 8px;
+      transition: all var(--transition);
+    }
+    .nav button:hover:not(.active) { background: var(--border-dim); color: var(--amber-lbl); }
+    .nav button.active {
+      background: linear-gradient(135deg, var(--saffron), var(--saffron-2));
+      color: var(--white); box-shadow: 0 2px 10px rgba(245,158,11,0.35);
+    }
+
+    /* ── Panels ─────────────────────────────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; animation: fade-in 0.35s ease both; }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .banner {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-left: 4px solid var(--saffron); border-radius: 10px;
+      padding: 11px 16px; margin-bottom: 14px;
+      font-size: 0.85rem; color: var(--text-mid); line-height: 1.6;
+    }
+    .banner strong { color: var(--amber-lbl); }
+    .banner.green { border-left-color: var(--green); }
+
+    .grid { display: flex; gap: 14px; align-items: flex-start; }
+    .grid > * { min-width: 0; }
+    .col-settings { flex: 1 1 0; }
+    .col-content  { flex: 2 1 0; }
+
+    .card {
+      background: var(--bg-card-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.4);
+    }
+    .card.content { background: var(--bg-input); border-color: var(--border-2); }
+
+    /* ── Form fields ────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 13px; }
+    .field:last-child { margin-bottom: 0; }
+    label.lbl {
+      display: block; font-size: 0.72rem; font-weight: 600;
+      color: var(--amber-lbl); text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .lbl .hint { color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+    select, input[type=text], textarea {
+      width: 100%; background: var(--bg-input);
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-family: inherit; font-size: 0.89rem;
+      padding: 9px 12px; transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+    }
+    select:focus, input[type=text]:focus, textarea:focus {
+      border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(245,158,11,0.14);
+    }
+    textarea { resize: vertical; line-height: 1.6; }
+    ::placeholder { color: var(--text-dim); }
+    select option { background: var(--bg-card); }
+
+    /* Slider */
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    input[type=range] { flex: 1; accent-color: var(--saffron); }
+    .slider-val {
+      min-width: 34px; text-align: center; background: var(--border-dim);
+      color: var(--amber-lbl); border: 1px solid var(--border);
+      border-radius: 6px; font-weight: 700; font-size: 0.8rem; padding: 2px 8px;
+    }
+
+    /* Radio pills */
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pills input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .pills label {
+      border: 1.5px solid var(--border); border-radius: 100px;
+      padding: 5px 16px; cursor: pointer; font-size: 0.82rem; font-weight: 500;
+      color: var(--text-mid); background: var(--bg-card); transition: all var(--transition);
+    }
+    .pills label:hover { border-color: var(--saffron-2); background: var(--border-dim); color: var(--amber-lbl); }
+    .pills input:checked + label {
+      border-color: var(--saffron);
+      background: linear-gradient(135deg, var(--saffron), var(--saffron-2));
+      color: var(--white); box-shadow: 0 2px 10px rgba(245,158,11,0.28);
+    }
+
+    /* Dropzone */
+    .dropzone {
+      position: relative; border: 2px dashed var(--border);
+      border-radius: 10px; background: var(--bg-input);
+      padding: 24px 18px; text-align: center; cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .dropzone:hover, .dropzone.drag { border-color: var(--saffron); background: var(--bg-card); }
+    .dropzone.has-file { border-color: var(--green); background: var(--green-bg); }
+    .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .dz-icon { font-size: 2rem; margin-bottom: 6px; }
+    .dz-label { font-size: 0.9rem; color: var(--text); }
+    .dz-hint { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+    .dz-file { margin-top: 8px; font-size: 0.82rem; color: var(--green-3); font-weight: 600;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dz-preview { margin-top: 10px; max-height: 160px; border-radius: 8px; display: none; }
+
+    /* Divider + button */
+    .divider { height: 1px; border: none; margin: 16px 0;
+      background: linear-gradient(to right, transparent, var(--border), transparent); }
+    .btn {
+      display: block; width: 100%; cursor: pointer; font-family: inherit;
+      background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-2) 100%);
+      color: var(--white); border: none; border-radius: 10px;
+      font-weight: 700; font-size: 0.93rem; letter-spacing: 0.2px; padding: 13px 28px;
+      box-shadow: 0 4px 16px rgba(245,158,11,0.28), 0 1px 4px rgba(0,0,0,0.4);
+      transition: all 0.18s ease;
+    }
+    .btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--saffron-2), var(--saffron-3));
+      box-shadow: 0 6px 20px rgba(245,158,11,0.38); transform: translateY(-1px);
+    }
+    .btn:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+    .btn:disabled { cursor: not-allowed; opacity: 1; filter: grayscale(0.4) brightness(0.7); }
+
+    .field-err { color: #F87171; font-size: 0.8rem; margin-top: 8px; min-height: 0; }
+
+    /* ── Loading card (orbit loader) ────────────────────────────────────────── */
+    .loading {
+      --accent: var(--saffron); --accent-2: var(--saffron-2); --glow: rgba(245,158,11,0.55);
+      display: none; align-items: center; gap: 26px;
+      background: radial-gradient(120% 140% at 0% 0%, rgba(245,158,11,0.07), transparent 55%), #15120D;
+      border: 1.5px solid var(--border); border-radius: 16px;
+      padding: 26px 30px; margin-top: 16px;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.45);
+    }
+    .loading.show { display: flex; animation: fade-in 0.4s ease both; }
+    .loading.green {
+      --accent: var(--green-2); --accent-2: var(--green); --glow: rgba(16,185,129,0.55);
+      background: radial-gradient(120% 140% at 0% 0%, rgba(16,185,129,0.07), transparent 55%), #0E1712;
+      border-color: var(--green-bd);
+    }
+    .orbit { position: relative; width: 76px; height: 76px; flex: 0 0 auto; }
+    .orbit-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 2px solid transparent; border-top-color: var(--accent); border-right-color: var(--accent-2);
+      animation: spin 1s linear infinite;
+    }
+    .orbit-core { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100%{ transform: scale(1); opacity: 1; } 50%{ transform: scale(1.12); opacity: 0.82; } }
+    .loading-body { flex: 1; min-width: 0; }
+    .loading-title { color: var(--amber-lbl); font-size: 1.02rem; font-weight: 700; margin-bottom: 3px; }
+    .loading.green .loading-title { color: var(--green-3); }
+    .loading-sub { color: var(--text-muted); font-size: 0.76rem; margin-bottom: 14px; }
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .steps li {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-mid); font-size: 0.85rem; opacity: 0.35;
+      animation: step-cycle 5s ease-in-out infinite;
+    }
+    .steps li .tick {
+      width: 9px; height: 9px; border-radius: 50%; background: var(--border);
+      flex: 0 0 auto; animation: tick-cycle 5s ease-in-out infinite;
+    }
+    @keyframes step-cycle { 0%,12%{opacity:.35} 24%,70%{opacity:1} 88%,100%{opacity:.35} }
+    @keyframes tick-cycle { 0%,12%{ background: var(--border); box-shadow: none; }
+                            24%,100%{ background: var(--accent); box-shadow: 0 0 8px var(--glow); } }
+    .loadbar { position: relative; height: 3px; margin-top: 16px; background: #241E15;
+      border-radius: 100px; overflow: hidden; }
+    .loading.green .loadbar { background: #14241C; }
+    .loadbar span {
+      position: absolute; top: 0; height: 100%; width: 38%; border-radius: 100px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: loadbar 1.5s ease-in-out infinite;
+    }
+    @keyframes loadbar { 0%{ left:-38% } 100%{ left:100% } }
+
+    /* ── Results ────────────────────────────────────────────────────────────── */
+    .results { display: none; margin-top: 18px; }
+    .results.show { display: block; animation: fade-in 0.45s ease both; }
+    .out-label {
+      display: flex; align-items: center; gap: 10px; margin: 4px 0 10px;
+      font-weight: 700; font-size: 0.7rem; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .out-label::after { content: ''; flex: 1; height: 1px;
+      background: linear-gradient(to right, var(--border), transparent); }
+
+    .subnav { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;
+      border-bottom: 2px solid var(--border); padding-bottom: 0; }
+    .subnav button {
+      background: transparent; border: none; cursor: pointer; font-family: inherit;
+      color: var(--text-muted); font-weight: 500; font-size: 0.82rem;
+      padding: 7px 13px; border-radius: 6px 6px 0 0; transition: all var(--transition);
+    }
+    .subnav button:hover:not(.active) { background: var(--border-dim); color: var(--amber-lbl); }
+    .subnav button.active { color: var(--amber-lbl); border-bottom: 2px solid var(--saffron); margin-bottom: -2px; }
+
+    .md {
+      background: var(--bg-input); border: 1.5px solid var(--border-2);
+      border-radius: 10px; padding: 16px 18px; min-height: 120px;
+      line-height: 1.8; color: var(--text); font-size: 0.9rem;
+    }
+    .md.sub { display: none; }
+    .md.sub.active { display: block; }
+    .md h1, .md h2, .md h3 { color: var(--amber-lbl);
+      border-bottom: 1px solid var(--border); padding-bottom: 6px; margin: 14px 0 10px; }
+    .md h1:first-child, .md h2:first-child, .md h3:first-child { margin-top: 0; }
+    .md ul, .md ol { padding-left: 22px; margin: 8px 0; }
+    .md li { margin: 4px 0; }
+    .md p { margin: 8px 0; }
+    .md code { background: var(--border-dim); color: var(--amber-lbl);
+      border-radius: 4px; padding: 2px 6px; font-size: 0.86em; }
+    .md blockquote { border-left: 3px solid var(--saffron); background: var(--bg-card);
+      padding: 8px 14px; border-radius: 0 6px 6px 0; margin: 8px 0; color: var(--text-mid); }
+    .md table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.85rem; }
+    .md th, .md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+    .md th { background: var(--border-dim); color: var(--amber-lbl); }
+    .md.green-accent {
+      background: var(--green-bg); border-color: var(--green-bd); border-left: 4px solid var(--green);
+    }
+    .md.green-accent h1, .md.green-accent h2, .md.green-accent h3 {
+      color: var(--green-3); border-bottom-color: var(--green-bd);
+    }
+
+    .status-pill {
+      display: inline-block; margin-bottom: 10px; font-size: 0.8rem; font-style: italic;
+      color: var(--text-muted); background: var(--bg-base); border: 1px solid var(--border-2);
+      border-radius: 100px; padding: 5px 14px;
+    }
+
+    .pdf-dl {
+      display: flex; align-items: center; gap: 10px; margin-top: 14px;
+      border: 2px dashed var(--green-bd); border-radius: 10px;
+      background: var(--green-bg); padding: 12px 16px;
+      color: var(--green-3); font-weight: 600; font-size: 0.88rem;
+    }
+    .pdf-dl a { color: var(--green-3); }
+
+    /* ── Footer ─────────────────────────────────────────────────────────────── */
+    .footer { text-align: center; margin-top: 30px; padding-top: 18px;
+      border-top: 1px solid var(--border); }
+    .footer-badges { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .footer-badge { background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 100px; padding: 3px 12px; font-size: 0.72rem; font-weight: 600; }
+    .footer-text { color: var(--text-dim); font-size: 0.77rem; line-height: 1.8; }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--saffron); }
+
+    /* Responsive */
+    @media (max-width: 760px) {
+      .shell { padding: 10px 12px 40px; }
+      .hero { padding: 24px 16px 20px; }
+      .hero h1 { font-size: 1.8rem; }
+      .grid { flex-direction: column; }
+      .col-settings, .col-content { width: 100%; flex: none; }
+      .loading { flex-direction: column; text-align: center; }
+      .steps li { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Header ── -->
+  <header class="hero">
+    <span class="models-badge" id="modelsBadge">⚡ Modal GPU</span>
+    <span class="hero-icon">📚</span>
+    <h1>TutorDesk AI</h1>
+    <div class="hero-tagline">AI copilot for Indian tuition teachers&nbsp;·&nbsp;90 min/day of prep → under 10</div>
+    <div class="hero-badges">
+      <span class="hero-badge">📖 Classes 6–10</span>
+      <span class="hero-badge">🔬 Math &amp; Science</span>
+      <span class="hero-badge">📋 CBSE / NCERT</span>
+      <span class="hero-badge">EN · HI · TA</span>
+      <span class="hero-badge">≤ 32B Params</span>
+    </div>
+  </header>
+
+  <!-- ── Feature nav ── -->
+  <nav class="nav" id="featureNav">
+    <button data-feature="weekly" class="active">📅 Weekly Pack</button>
+    <button data-feature="textbook">📷 Textbook Scan</button>
+    <button data-feature="grade">✏️ Auto-Grade</button>
+    <button data-feature="translate">🌐 Translate</button>
+    <button data-feature="illustrated">🎨 Illustrated</button>
+  </nav>
+
+  <!-- ══════════════ Feature 2 — Weekly Pack ══════════════ -->
+  <section class="panel active" id="panel-weekly">
+    <div class="banner"><strong>📅 Weekly Teaching Pack</strong> — Enter chapter content and get a full teaching pack —
+      worksheet, homework, quiz, answer key, and parent note — in one click.</div>
+    <div class="grid">
+      <div class="card col-settings" id="weekly-settings"></div>
+      <div class="card content col-content">
+        <div class="field">
+          <label class="lbl">Chapter Content</label>
+          <textarea id="weekly-chapter" rows="11"
+            placeholder="Paste chapter text here, or use the Textbook Scan tab to upload a photo."></textarea>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <button class="btn" data-run="weekly">✨ Generate Teaching Pack</button>
+    <div class="field-err" id="weekly-err"></div>
+    <div class="loading" id="weekly-loading"></div>
+    <div class="results" id="weekly-results"></div>
+  </section>
+
+  <!-- ══════════════ Feature 1 — Textbook Scan ══════════════ -->
+  <section class="panel" id="panel-textbook">
+    <div class="banner"><strong>📷 Worksheet from Textbook</strong> — Photograph a textbook chapter or upload a PDF.
+      <strong>MiniCPM-V</strong> reads it and auto-generates your full teaching pack.</div>
+    <div class="grid">
+      <div class="card col-settings" id="textbook-settings"></div>
+      <div class="card content col-content">
+        <div class="field">
+          <label class="lbl">Textbook Photo <span class="hint">(camera or upload)</span></label>
+          <div class="dropzone" id="tb-photo-dz">
+            <input type="file" id="tb-photo" accept="image/*">
+            <div class="dz-icon">📷</div>
+            <div class="dz-label">Drop a photo or tap to upload</div>
+            <div class="dz-hint">JPEG · PNG · WEBP</div>
+            <div class="dz-file" id="tb-photo-name"></div>
+            <img class="dz-preview" id="tb-photo-prev" alt="">
+          </div>
+        </div>
+        <div class="field">
+          <label class="lbl">Or upload a PDF</label>
+          <div class="dropzone" id="tb-pdf-dz">
+            <input type="file" id="tb-pdf" accept="application/pdf">
+            <div class="dz-icon">📄</div>
+            <div class="dz-label">Drop a PDF or tap to upload</div>
+            <div class="dz-file" id="tb-pdf-name"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <button class="btn" data-run="textbook">🔍 Extract &amp; Generate Teaching Pack</button>
+    <div class="field-err" id="textbook-err"></div>
+    <div class="loading" id="textbook-loading"></div>
+    <div class="results" id="textbook-results"></div>
+  </section>
+
+  <!-- ══════════════ Feature 5 — Auto-Grade ══════════════ -->
+  <section class="panel" id="panel-grade">
+    <div class="banner green"><strong>✏️ Photo Auto-Grading</strong> — Photograph a filled answer sheet.
+      <strong>MiniCPM-V</strong> reads the answers; the fine-tuned <strong>Qwen3-4B</strong> grades them
+      Indian-style — step marks, partial credit, CBSE conventions.</div>
+    <div class="grid">
+      <div class="card col-settings" id="grade-settings"></div>
+      <div class="card content col-content">
+        <div class="field">
+          <label class="lbl">Answer Sheet Photo <span class="hint">(camera or upload)</span></label>
+          <div class="dropzone" id="ag-photo-dz">
+            <input type="file" id="ag-photo" accept="image/*">
+            <div class="dz-icon">📷</div>
+            <div class="dz-label">Drop a photo or tap to upload</div>
+            <div class="dz-hint">Use neat / printed sheets for best results</div>
+            <div class="dz-file" id="ag-photo-name"></div>
+            <img class="dz-preview" id="ag-photo-prev" alt="">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card content" style="margin-top:14px">
+      <div class="field">
+        <label class="lbl">Marking Scheme <span class="hint">— use Q&lt;n&gt; [&lt;marks&gt; marks]: format</span></label>
+        <textarea id="ag-scheme" rows="8" placeholder="Q1 [3 marks]: Model answer for question 1
+Q2 [5 marks]:
+  Step 1 (1 mark): First step expected
+  Step 2 (2 marks): Second step expected
+  Step 3 (2 marks): Final answer expected
+Q3 [2 marks]: Model answer for question 3"></textarea>
+      </div>
+    </div>
+    <hr class="divider">
+    <button class="btn" data-run="grade">🎯 Grade Answer Sheet</button>
+    <div class="field-err" id="grade-err"></div>
+    <div class="loading green" id="grade-loading"></div>
+    <div class="results" id="grade-results"></div>
+  </section>
+
+  <!-- ══════════════ Feature 3 — Translate ══════════════ -->
+  <section class="panel" id="panel-translate">
+    <div class="banner green"><strong>🌐 Regional Language</strong> — Translate any teaching content into your regional
+      language using <strong>Tiny Aya</strong> (CohereLabs/tiny-aya-fire, 3.35B, South-Asian-tuned).
+      Paste output from any other tab, choose a language, and download.</div>
+    <div class="card content">
+      <div class="field" id="translate-lang-field"></div>
+      <div class="field">
+        <label class="lbl">Content to Translate</label>
+        <textarea id="translate-content" rows="12"
+          placeholder="Paste worksheet, quiz, parent note, or any teaching content here…"></textarea>
+      </div>
+    </div>
+    <hr class="divider">
+    <button class="btn" data-run="translate">🌐 Translate with Tiny Aya</button>
+    <div class="field-err" id="translate-err"></div>
+    <div class="loading green" id="translate-loading"></div>
+    <div class="results" id="translate-results"></div>
+  </section>
+
+  <!-- ══════════════ Feature 4 — Illustrated ══════════════ -->
+  <section class="panel" id="panel-illustrated">
+    <div class="banner"><strong>🎨 Illustrated Worksheets</strong> — Generate a full teaching pack
+      <strong>with labeled diagrams</strong> embedded in the PDF. Qwen3-4B identifies key concepts;
+      <strong>FLUX.1-schnell</strong> (Black Forest Labs) generates the images.</div>
+    <div class="grid">
+      <div class="card col-settings" id="illustrated-settings"></div>
+      <div class="card content col-content">
+        <div class="field">
+          <label class="lbl">Chapter Content</label>
+          <textarea id="illustrated-chapter" rows="11" placeholder="Paste chapter text here…"></textarea>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <button class="btn" data-run="illustrated">🎨 Generate Illustrated Pack</button>
+    <div class="field-err" id="illustrated-err"></div>
+    <div class="loading" id="illustrated-loading"></div>
+    <div class="results" id="illustrated-results"></div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <div class="footer-badges">
+      <span class="footer-badge">Qwen3-4B Fine-tuned</span>
+      <span class="footer-badge">MiniCPM-V 4.5</span>
+      <span class="footer-badge">Tiny Aya 3.35B</span>
+      <span class="footer-badge">FLUX.1-schnell</span>
+      <span class="footer-badge">Modal GPU</span>
+      <span class="footer-badge">Build Small Hackathon 2026</span>
+    </div>
+    <div class="footer-text">
+      Built with ❤️ for Indian teachers&nbsp;·&nbsp;
+      <a href="https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b" target="_blank">Fine-tuned Qwen3-4B</a>&nbsp;·&nbsp;
+      Powered by Modal, MiniCPM-V, Tiny Aya &amp; FLUX.1-schnell
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ── Config (populated from /api/config) ───────────────────────────────────────
+let CFG = {
+  classes: ["6","7","8","9","10"],
+  subjects: ["Mathematics","Science"],
+  languages: ["English","Hindi","Tamil"],
+  languages_non_en: ["Hindi","Tamil"],
+};
+
+const PACK_SECTIONS = [
+  { key: "worksheet",   label: "📝 Worksheet" },
+  { key: "homework",    label: "📚 Homework" },
+  { key: "quiz",        label: "❓ Quiz" },
+  { key: "answer_key",  label: "🔑 Answer Key" },
+  { key: "parent_note", label: "👨‍👩‍👧 Parent Note" },
+];
+
+const LOADING_STEPS = {
+  weekly: { accent: "amber", title: "Building your weekly teaching pack…", steps: [
+    "Analysing chapter & curriculum", "Generating questions", "Calibrating difficulty",
+    "Writing answer key & parent note", "Assembling print-ready PDF" ] },
+  textbook: { accent: "amber", title: "Reading your textbook & building the pack…", steps: [
+    "MiniCPM-V reading your photo / PDF", "Extracting chapter concepts",
+    "Generating questions & answer key", "Writing parent note", "Assembling print-ready PDF" ] },
+  grade: { accent: "green", title: "Grading the answer sheet…", steps: [
+    "MiniCPM-V reading the answer sheet", "Qwen3-4B grading Indian-style",
+    "Tallying step marks & partial credit", "Writing report & parent note" ] },
+  translate: { accent: "green", title: "Translating with Tiny Aya…", steps: [
+    "Tiny Aya translating your content", "Preserving formatting & subject terms", "Building translated PDF" ] },
+  illustrated: { accent: "amber", title: "Generating your illustrated pack…", steps: [
+    "Building the teaching pack", "Identifying key concepts to illustrate",
+    "FLUX.1-schnell drawing diagrams", "Embedding diagrams into the PDF" ] },
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", async () => {
+  await loadConfig();
+  buildSettingsPanels();
+  buildTranslateLang();
+  initNav();
+  initDropzones();
+  initRunButtons();
+});
+
+async function loadConfig() {
+  try {
+    const r = await fetch("/api/config");
+    if (r.ok) CFG = await r.json();
+  } catch (e) { /* keep defaults */ }
+}
+
+// ── Settings panels (Class / Subject / Language / Questions / Difficulty) ──────
+function selectField(id, label, opts, value) {
+  const o = opts.map(v => `<option value="${v}" ${v === value ? "selected" : ""}>${v}</option>`).join("");
+  return `<div class="field"><label class="lbl">${label}</label><select id="${id}">${o}</select></div>`;
+}
+function sliderField(id, label, min, max, step, value) {
+  return `<div class="field"><label class="lbl">${label}</label>
+    <div class="slider-row">
+      <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}"
+        oninput="document.getElementById('${id}-val').textContent=this.value">
+      <span class="slider-val" id="${id}-val">${value}</span>
+    </div></div>`;
+}
+function pillsField(id, label, opts, value) {
+  const p = opts.map((v,i) => `
+    <input type="radio" name="${id}" id="${id}-${i}" value="${v}" ${v === value ? "checked" : ""}>
+    <label for="${id}-${i}">${v}</label>`).join("");
+  return `<div class="field"><label class="lbl">${label}</label><div class="pills">${p}</div></div>`;
+}
+
+function packSettings(prefix) {
+  return [
+    selectField(`${prefix}-grade`, "Class", CFG.classes, "8"),
+    selectField(`${prefix}-subject`, "Subject", CFG.subjects, CFG.subjects.includes("Science") ? "Science" : CFG.subjects[0]),
+    selectField(`${prefix}-language`, "Language", CFG.languages, "English"),
+    sliderField(`${prefix}-count`, "Questions", 5, 30, 5, 20),
+    pillsField(`${prefix}-diff`, "Difficulty", ["Easy","Medium","Hard"], "Medium"),
+  ].join("");
+}
+
+function buildSettingsPanels() {
+  document.getElementById("weekly-settings").innerHTML = packSettings("weekly");
+  document.getElementById("textbook-settings").innerHTML = packSettings("textbook");
+  document.getElementById("illustrated-settings").innerHTML = packSettings("illustrated");
+  document.getElementById("grade-settings").innerHTML = [
+    selectField("grade-grade", "Class", CFG.classes, "8"),
+    selectField("grade-subject", "Subject", CFG.subjects, CFG.subjects.includes("Science") ? "Science" : CFG.subjects[0]),
+    `<div class="field"><label class="lbl">Student Name</label>
+      <input type="text" id="grade-student" placeholder="e.g. Priya Sharma"></div>`,
+  ].join("");
+}
+
+function buildTranslateLang() {
+  const langs = CFG.languages_non_en && CFG.languages_non_en.length ? CFG.languages_non_en : ["Hindi","Tamil"];
+  document.getElementById("translate-lang-field").innerHTML =
+    selectField("translate-language", "Target Language", langs, langs[0]);
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────────
+function initNav() {
+  document.querySelectorAll("#featureNav button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#featureNav button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-" + btn.dataset.feature).classList.add("active");
+    });
+  });
+}
+
+// ── Dropzones ──────────────────────────────────────────────────────────────────
+const FILES = {};  // id -> File
+function initDropzones() {
+  setupDropzone("tb-photo", "tb-photo-dz", "tb-photo-name", "tb-photo-prev");
+  setupDropzone("tb-pdf", "tb-pdf-dz", "tb-pdf-name", null);
+  setupDropzone("ag-photo", "ag-photo-dz", "ag-photo-name", "ag-photo-prev");
+}
+function setupDropzone(inputId, dzId, nameId, prevId) {
+  const input = document.getElementById(inputId);
+  const dz = document.getElementById(dzId);
+  const onFile = (file) => {
+    if (!file) return;
+    FILES[inputId] = file;
+    dz.classList.add("has-file");
+    document.getElementById(nameId).textContent = "✓ " + file.name;
+    if (prevId && file.type.startsWith("image/")) {
+      const prev = document.getElementById(prevId);
+      prev.src = URL.createObjectURL(file);
+      prev.style.display = "block";
+    }
+  };
+  input.addEventListener("change", e => onFile(e.target.files[0]));
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    if (e.dataTransfer.files[0]) { input.files = e.dataTransfer.files; onFile(e.dataTransfer.files[0]); }
+  });
+}
+
+// ── Run buttons ─────────────────────────────────────────────────────────────────
+function initRunButtons() {
+  document.querySelectorAll("[data-run]").forEach(btn => {
+    btn.addEventListener("click", () => RUNNERS[btn.dataset.run](btn));
+  });
+}
+
+function val(id) { const el = document.getElementById(id); return el ? el.value : ""; }
+function radioVal(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ""; }
+function setErr(feature, msg) { document.getElementById(feature + "-err").textContent = msg || ""; }
+
+function showLoading(feature) {
+  const cfg = LOADING_STEPS[feature];
+  const box = document.getElementById(feature + "-loading");
+  const items = cfg.steps.map((s,i) =>
+    `<li style="animation-delay:${i*0.55}s"><span class="tick" style="animation-delay:${i*0.55}s"></span>${s}</li>`).join("");
+  box.innerHTML = `
+    <div class="orbit"><span class="orbit-ring"></span><span class="orbit-core">📚</span></div>
+    <div class="loading-body">
+      <div class="loading-title">${cfg.title}</div>
+      <div class="loading-sub">Running on Modal GPUs · cold start can take up to a minute</div>
+      <ul class="steps">${items}</ul>
+      <div class="loadbar"><span></span></div>
+    </div>`;
+  box.classList.add("show");
+  document.getElementById(feature + "-results").classList.remove("show");
+}
+function hideLoading(feature) { document.getElementById(feature + "-loading").classList.remove("show"); }
+
+function pdfHtml(pdf) {
+  if (!pdf) return "";
+  return `<div class="pdf-dl">⬇️ <a href="${pdf.url}" download="${pdf.name}">Download PDF — ${pdf.name}</a></div>`;
+}
+
+function renderPack(feature, data, extraTop) {
+  const tabs = PACK_SECTIONS.map((s,i) =>
+    `<button class="${i===0?'active':''}" data-sub="${feature}-${s.key}">${s.label}</button>`).join("");
+  const panes = PACK_SECTIONS.map((s,i) =>
+    `<div class="md sub ${i===0?'active':''}" id="md-${feature}-${s.key}">${marked.parse(data[s.key] || "")}</div>`).join("");
+  document.getElementById(feature + "-results").innerHTML = `
+    ${extraTop || ""}
+    <div class="out-label">Generated Output</div>
+    <div class="subnav">${tabs}</div>
+    ${panes}
+    ${pdfHtml(data.pdf)}`;
+  wireSubnav(feature);
+  document.getElementById(feature + "-results").classList.add("show");
+}
+
+function wireSubnav(feature) {
+  const root = document.getElementById(feature + "-results");
+  root.querySelectorAll(".subnav button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      root.querySelectorAll(".subnav button").forEach(b => b.classList.remove("active"));
+      root.querySelectorAll(".md.sub").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("md-" + btn.dataset.sub).classList.add("active");
+    });
+  });
+}
+
+async function postJSON(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return r.json();
+}
+async function postForm(url, formData) {
+  const r = await fetch(url, { method: "POST", body: formData });
+  return r.json();
+}
+
+async function withRun(feature, btn, fn) {
+  setErr(feature, "");
+  btn.disabled = true;
+  showLoading(feature);
+  try {
+    const data = await fn();
+    if (data && data.error) { setErr(feature, data.error); }
+    else { return data; }
+  } catch (e) {
+    setErr(feature, "Network error: " + e.message);
+  } finally {
+    hideLoading(feature);
+    btn.disabled = false;
+  }
+  return null;
+}
+
+// ── Runners ──────────────────────────────────────────────────────────────────────
+const RUNNERS = {
+  async weekly(btn) {
+    const chapter = val("weekly-chapter").trim();
+    if (!chapter) { setErr("weekly", "Please enter chapter content, or use the Textbook Scan tab."); return; }
+    const data = await withRun("weekly", btn, () => postJSON("/api/weekly_pack", {
+      chapter_text: chapter, grade: val("weekly-grade"), subject: val("weekly-subject"),
+      language: val("weekly-language"), question_count: val("weekly-count"), difficulty: radioVal("weekly-diff"),
+    }));
+    if (data) renderPack("weekly", data);
+  },
+
+  async textbook(btn) {
+    const photo = FILES["tb-photo"], pdf = FILES["tb-pdf"];
+    if (!photo && !pdf) { setErr("textbook", "Please upload a textbook photo or PDF."); return; }
+    const fd = new FormData();
+    if (photo) fd.append("photo", photo);
+    if (pdf) fd.append("pdf", pdf);
+    fd.append("grade", val("textbook-grade")); fd.append("subject", val("textbook-subject"));
+    fd.append("language", val("textbook-language")); fd.append("question_count", val("textbook-count"));
+    fd.append("difficulty", radioVal("textbook-diff"));
+    const data = await withRun("textbook", btn, () => postForm("/api/textbook", fd));
+    if (data) renderPack("textbook", data);
+  },
+
+  async grade(btn) {
+    const photo = FILES["ag-photo"];
+    const scheme = val("ag-scheme").trim();
+    if (!photo) { setErr("grade", "Please upload a photo of the answer sheet."); return; }
+    if (!scheme) { setErr("grade", "Please enter the marking scheme."); return; }
+    const fd = new FormData();
+    fd.append("photo", photo); fd.append("marking_scheme", scheme);
+    fd.append("grade", val("grade-grade")); fd.append("subject", val("grade-subject"));
+    fd.append("student", val("grade-student"));
+    const data = await withRun("grade", btn, () => postForm("/api/auto_grade", fd));
+    if (!data) return;
+    document.getElementById("grade-results").innerHTML = `
+      <div class="out-label">Grading Results</div>
+      <div class="md green-accent">${marked.parse(data.summary || "")}</div>
+      <div class="out-label">Parent Note</div>
+      <div class="md">${marked.parse(data.parent_note || "")}</div>
+      ${pdfHtml(data.pdf)}`;
+    document.getElementById("grade-results").classList.add("show");
+  },
+
+  async translate(btn) {
+    const content = val("translate-content").trim();
+    if (!content) { setErr("translate", "Please paste some content to translate."); return; }
+    const data = await withRun("translate", btn, () => postJSON("/api/translate", {
+      content, language: val("translate-language"),
+    }));
+    if (!data) return;
+    document.getElementById("translate-results").innerHTML = `
+      <div class="out-label">Translated Output</div>
+      <div class="md">${marked.parse(data.translated || "")}</div>
+      ${pdfHtml(data.pdf)}`;
+    document.getElementById("translate-results").classList.add("show");
+  },
+
+  async illustrated(btn) {
+    const chapter = val("illustrated-chapter").trim();
+    if (!chapter) { setErr("illustrated", "Please enter chapter content."); return; }
+    const data = await withRun("illustrated", btn, () => postJSON("/api/illustrated", {
+      chapter_text: chapter, grade: val("illustrated-grade"), subject: val("illustrated-subject"),
+      language: val("illustrated-language"), question_count: val("illustrated-count"), difficulty: radioVal("illustrated-diff"),
+    }));
+    if (data) renderPack("illustrated", data,
+      `<div class="status-pill">${data.diagram_status || ""}</div>`);
+  },
+};
+</script>
+</body>
+</html>
