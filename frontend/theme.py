@@ -548,6 +548,209 @@ button[class*="primary"]:active {
 #td-footer a { color: #D97706 !important; text-decoration: none !important; font-weight: 600 !important; }
 #td-footer a:hover { color: #F59E0B !important; }
 
+/* ── Processing / loading states ────────────────────────────────────────── */
+
+/* Keyframes */
+@keyframes td-shimmer {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+@keyframes td-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes td-btn-sweep {
+    0%   { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+@keyframes td-bar-move {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+/* ── "generating" class: Gradio adds this to every output block while running */
+.generating,
+.generating * {
+    /* kill any green / teal glow Gradio injects */
+    box-shadow: none !important;
+}
+.generating {
+    position: relative !important;
+    background: #141210 !important;
+    border: 1.5px solid #3A3020 !important;
+    border-radius: 10px !important;
+    /* strip Gradio's default green animation */
+    animation: none !important;
+    overflow: hidden !important;
+}
+/* Amber running bar across the bottom of the block */
+.generating::before {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 30% !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent, #F59E0B, transparent) !important;
+    animation: td-bar-move 1.6s ease-in-out infinite !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+}
+/* Subtle amber tint overlay */
+.generating::after {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(245,158,11,0.03) !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
+
+/* ── "processing | 74.7s" label — bottom-right of each block */
+/* Gradio renders this as <span class="meta-text">processing | 74.7s</span> */
+.meta-text,
+.meta-text-center,
+.meta-text span,
+span.meta {
+    background: #1C1814 !important;
+    border: 1px solid #3A3020 !important;
+    border-radius: 100px !important;
+    color: #F59E0B !important;
+    font-size: 0.70rem !important;
+    font-weight: 700 !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    letter-spacing: 0.4px !important;
+    padding: 2px 10px !important;
+    line-height: 1.6 !important;
+    text-transform: uppercase !important;
+}
+
+/* ── Gradio's inline spinner SVG (the pencil/eraser icon) ── */
+/* Replace it with our own amber ring via clip + opacity */
+.wrap > .loading,
+.block .loading,
+.generating .loading,
+.pending .loading {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+/* Hide default icon, show custom ring */
+.wrap > .loading svg,
+.block .loading svg,
+.generating .loading svg,
+.pending .loading svg {
+    display: none !important;
+}
+.wrap > .loading::after,
+.block .loading::after,
+.generating .loading::after,
+.pending .loading::after {
+    content: '' !important;
+    display: block !important;
+    width: 28px !important;
+    height: 28px !important;
+    border: 3px solid #3A3020 !important;
+    border-top-color: #F59E0B !important;
+    border-radius: 50% !important;
+    animation: td-spin 0.9s linear infinite !important;
+}
+
+/* ── ETA / top progress bar ── */
+.progress-bar-wrap {
+    background: #1C1814 !important;
+    height: 3px !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+}
+.progress-bar-wrap .progress-bar {
+    background: linear-gradient(90deg, #F59E0B, #D97706, #F59E0B) !important;
+    background-size: 200% 100% !important;
+    animation: td-shimmer 1.4s ease infinite !important;
+    height: 3px !important;
+}
+.eta-bar,
+.progress-level,
+.progress-level-inner {
+    color: #8A7A5C !important;
+    font-size: 0.73rem !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* ── Pending (queued, not yet started) ── */
+.pending {
+    background: #141210 !important;
+    border: 1.5px dashed #3A3020 !important;
+    border-radius: 10px !important;
+    animation: none !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+/* Slow amber shimmer on pending blocks */
+.pending::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(245,158,11,0.06) 50%,
+        transparent 100%
+    ) !important;
+    background-size: 200% 100% !important;
+    animation: td-shimmer 2.4s ease infinite !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}
+
+/* ── Button loading / disabled ── */
+button.primary:disabled,
+button[class*="primary"]:disabled {
+    background: linear-gradient(135deg, #2A2218, #1C1814) !important;
+    color: #8A7A5C !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    opacity: 1 !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border: 1px solid #3A3020 !important;
+}
+button.primary:disabled::before,
+button[class*="primary"]:disabled::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(245,158,11,0.12) 40%,
+        rgba(245,158,11,0.22) 50%,
+        rgba(245,158,11,0.12) 60%,
+        transparent 100%
+    ) !important;
+    background-size: 200% 100% !important;
+    animation: td-btn-sweep 1.6s ease infinite !important;
+}
+/* Hide the default svg spinner Gradio puts in the button; we keep text only */
+button:disabled svg { display: none !important; }
+
+/* ── Queue / status bar ── */
+.queue-status, .queue-position {
+    background: #2A2218 !important;
+    border: 1px solid #3A3020 !important;
+    border-radius: 100px !important;
+    color: #FCD34D !important;
+    font-size: 0.73rem !important;
+    font-weight: 700 !important;
+    padding: 3px 10px !important;
+}
+#statusbar, .statusbar {
+    background: #1C1814 !important;
+    border-top: 1px solid #3A3020 !important;
+    color: #8A7A5C !important;
+    font-size: 0.73rem !important;
+}
+
 /* ── Hide Gradio's built-in footer bar ───────────────────────────────────── */
 footer { display: none !important; }
 

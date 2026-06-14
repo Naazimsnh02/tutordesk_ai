@@ -607,7 +607,7 @@ def build_app() -> gr.Blocks:
             '<span class="td-footer-badge">Tiny Aya 3.35B</span>'
             '<span class="td-footer-badge">FLUX.1-schnell</span>'
             '<span class="td-footer-badge">Modal GPU</span>'
-            '<span class="td-footer-badge">HF × Gradio Hackathon 2026</span>'
+            '<span class="td-footer-badge">Build Small Hackathon 2026</span>'
             '</div>'
             '<div class="td-footer-text">'
             'Built with ❤️ for Indian teachers &nbsp;·&nbsp; '
