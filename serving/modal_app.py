@@ -247,13 +247,77 @@ class Flux:
 
 
 # ---------------------------------------------------------------------------
-# Local entrypoint for quick manual testing:  modal run serving/modal_app.py
+# Local entrypoint — smoke-test all 4 models:  modal run serving/modal_app.py
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
 def main() -> None:
-    q = Qwen()
-    out = q.generate.remote(
-        "You are a CBSE tutor for Class 8 Science.",
-        "Generate 3 medium MCQ questions on the topic of Cell Structure.",
-    )
-    print(out)
+    import io
+    import time
+
+    W = 65
+
+    def _ok(label, t0, preview=""):
+        import textwrap
+        short = textwrap.shorten(str(preview).replace("\n", " "), width=45)
+        print(f"  ✅  {label:<24} ({time.time()-t0:.1f}s)  {short!r}")
+
+    def _fail(label, t0, err):
+        print(f"  ❌  {label:<24} ({time.time()-t0:.1f}s)  {err}")
+
+    print("=" * W)
+    print("  TutorDesk AI — Modal smoke test (all 4 models)")
+    print("=" * W)
+
+    # 1 — Qwen3-4B
+    print("\n  1 · Qwen3-4B")
+    t = time.time()
+    try:
+        q = Qwen()
+        out = q.generate.remote(
+            "You are a CBSE tutor for Class 8 Science.",
+            "Give one MCQ on Cell Structure. Return only the question and 4 options.",
+            max_new_tokens=256, temperature=0.3,
+        )
+        _ok("Qwen.generate", t, out)
+    except Exception as exc:
+        _fail("Qwen.generate", t, exc)
+
+    # 2 — MiniCPM-V
+    print("\n  2 · MiniCPM-V 4.5")
+    t = time.time()
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new("RGB", (128, 128), (255, 255, 248))
+        ImageDraw.Draw(img).text((10, 55), "TEST", fill=(60, 60, 60))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        m = MiniCPM()
+        out = m.read_image.remote(buf.getvalue(), "Describe this image in one sentence.")
+        _ok("MiniCPM.read_image", t, out)
+    except Exception as exc:
+        _fail("MiniCPM.read_image", t, exc)
+
+    # 3 — Tiny Aya
+    print("\n  3 · Tiny Aya")
+    t = time.time()
+    try:
+        a = TinyAya()
+        out = a.localize.remote("What is the function of the cell membrane?", "Hindi")
+        _ok("TinyAya.localize", t, out)
+    except Exception as exc:
+        _fail("TinyAya.localize", t, exc)
+
+    # 4 — FLUX.1-schnell
+    print("\n  4 · FLUX.1-schnell")
+    t = time.time()
+    try:
+        f = Flux()
+        raw = f.generate_diagram.remote(
+            "Simple labeled science diagram: animal cell. Clean, educational style."
+        )
+        size_kb = len(raw) // 1024
+        _ok("Flux.generate_diagram", t, f"PNG {size_kb} KB")
+    except Exception as exc:
+        _fail("Flux.generate_diagram", t, exc)
+
+    print("\n" + "=" * W)
