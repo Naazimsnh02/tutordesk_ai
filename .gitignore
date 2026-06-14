@@ -18,8 +18,9 @@ data/raw/
 data/processed/
 outputs/
 
-# Traces (publish deliberately, don't auto-commit raw)
+# Traces (publish deliberately via data/export_traces.py — don't auto-commit)
 traces/raw/
+traces/build_sessions/
 
 # OS
 .DS_Store

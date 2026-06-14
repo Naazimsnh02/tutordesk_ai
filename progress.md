@@ -2,7 +2,7 @@
 
 Update this as work completes. Status: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
-Last updated: 2026-06-13 (Phases 4 + 5 + 6 complete)
+Last updated: 2026-06-14 (Phases 4 + 5 + 6 complete + UI redesign)
 
 ---
 
@@ -67,7 +67,8 @@ Last updated: 2026-06-13 (Phases 4 + 5 + 6 complete)
 ## Phase 6 — Badge layer & polish
 - ✅ Local mode via llama.cpp (**Off the Grid + Llama Champion**) — `models/qwen.py` `_local_llm()`, `QWEN_GGUF_PATH` + `GGUF_N_GPU_LAYERS` in config; `llama-cpp-python>=0.3` added to requirements; offline path calls `create_chat_completion` with chatml format
 - ✅ `traces/` capture + publish HF dataset (**Sharing is Caring**) — `data/export_traces.py` reads `traces/raw/agent_traces.jsonl` and pushes to `naazimsnh02/tutordesk-agent-traces`
-- ✅ Custom `gr.Theme` frontend (**Off-Brand**) — `frontend/theme.py`: saffron/green palette, Noto Sans, branded CSS; wired into `app.py` via Gradio 6 `demo.launch(theme=, css=)` API
+- ✅ Custom `gr.Theme` frontend (**Off-Brand**) — `frontend/theme.py`: saffron/green palette, Plus Jakarta Sans, branded CSS; wired into `app.py` via Gradio 6 `demo.launch(theme=, css=)` API
+- ✅ Full UI redesign — rich gradient header with badges, pill radio buttons, settings/content panel cards, per-feature info banners, output section labels, dividers, green-accented PDF downloads, footer with model badges; elem_id + elem_classes on every component
 - ✅ Field Notes blog post — `field_notes.md` (submit to HF Field Notes)
 - ✅ **Exit:** all badges claimable, app polished
 

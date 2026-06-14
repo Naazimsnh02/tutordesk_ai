@@ -240,67 +240,103 @@ def run_illustrated_pack(
 
 
 # ---------------------------------------------------------------------------
+# HTML snippet helpers
+# ---------------------------------------------------------------------------
+
+def _banner(icon: str, title: str, desc: str) -> str:
+    return (
+        f'<div class="feature-banner">'
+        f'<strong>{icon} {title}</strong> — {desc}'
+        f'</div>'
+    )
+
+
+_DIVIDER = '<hr class="td-divider">'
+_OUTPUT_LABEL = '<div class="td-output-label">Generated Output</div>'
+
+
+# ---------------------------------------------------------------------------
 # App layout
 # ---------------------------------------------------------------------------
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="TutorDesk AI") as demo:
-        # Branded header (styled via #td-header in CUSTOM_CSS)
+
+        # ── Header ──────────────────────────────────────────────────────────
         gr.HTML(
             '<div id="td-header">'
-            "<h1>TutorDesk AI</h1>"
-            "<p>AI copilot for Indian tuition teachers &nbsp;·&nbsp; "
-            "Classes 6–10 &nbsp;·&nbsp; Math &amp; Science &nbsp;·&nbsp; CBSE/NCERT</p>"
-            "</div>"
+            '<span class="td-icon">📚</span>'
+            '<h1>TutorDesk AI</h1>'
+            '<p class="td-tagline">'
+            'AI copilot for Indian tuition teachers &nbsp;·&nbsp; '
+            '90 min/day of prep → under 10'
+            '</p>'
+            '<div class="td-badges">'
+            '<span class="td-badge">📖 Classes 6–10</span>'
+            '<span class="td-badge">🔬 Math &amp; Science</span>'
+            '<span class="td-badge">📋 CBSE / NCERT</span>'
+            '<span class="td-badge">🇮🇳 7 Languages</span>'
+            '<span class="td-badge">⚡ Modal GPU</span>'
+            '<span class="td-badge">≤ 32B Params</span>'
+            '</div>'
+            '</div>'
         )
 
         with gr.Tabs():
 
             # ── Feature 2: Weekly Teaching Pack ──────────────────────────
-            with gr.Tab("Weekly Teaching Pack"):
-                gr.Markdown(
-                    "Enter the chapter content and get a full teaching pack — "
+            with gr.Tab("📅 Weekly Pack"):
+                gr.HTML(_banner(
+                    "📅", "Weekly Teaching Pack",
+                    "Enter chapter content and get a full teaching pack — "
                     "worksheet, homework, quiz, answer key, and parent note — in one click."
-                )
-                with gr.Row():
-                    with gr.Column(scale=1):
+                ))
+                with gr.Row(elem_classes=["td-main-row"]):
+                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
                         grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class"
+                            _class_choices(), value="8", label="Class", elem_id="wp-grade"
                         )
                         subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject"
+                            _subject_choices(), value="Science", label="Subject", elem_id="wp-subject"
                         )
                         language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language"
+                            _lang_choices(), value="English", label="Language", elem_id="wp-lang"
                         )
                         question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Number of Questions"
+                            5, 30, value=20, step=5, label="Questions", elem_id="wp-count"
                         )
                         difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty"
+                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
+                            elem_id="wp-diff", elem_classes=["radio-group"],
                         )
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=2, elem_classes=["content-panel"]):
                         chapter_text = gr.Textbox(
                             label="Chapter Content",
-                            placeholder="Paste chapter text here, or use the Worksheet-from-Textbook tab to upload a photo.",
+                            placeholder="Paste chapter text here, or use the Textbook Scan tab to upload a photo.",
                             lines=10,
+                            elem_id="wp-chapter",
                         )
 
-                generate_btn = gr.Button("Generate Teaching Pack", variant="primary")
+                gr.HTML(_DIVIDER)
+                generate_btn = gr.Button("✨ Generate Teaching Pack", variant="primary", elem_id="wp-btn")
+                gr.HTML(_OUTPUT_LABEL)
 
                 with gr.Tabs():
-                    with gr.Tab("Worksheet"):
-                        worksheet_out = gr.Markdown(label="Worksheet")
-                    with gr.Tab("Homework"):
-                        homework_out = gr.Markdown(label="Homework")
-                    with gr.Tab("Quiz"):
-                        quiz_out = gr.Markdown(label="Quiz")
-                    with gr.Tab("Answer Key"):
-                        key_out = gr.Markdown(label="Answer Key")
-                    with gr.Tab("Parent Note"):
-                        note_out = gr.Markdown(label="Parent Note Template")
+                    with gr.Tab("📝 Worksheet"):
+                        worksheet_out = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("📚 Homework"):
+                        homework_out = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("❓ Quiz"):
+                        quiz_out = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("🔑 Answer Key"):
+                        key_out = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("👨‍👩‍👧 Parent Note"):
+                        note_out = gr.Markdown(elem_classes=["output-markdown"])
 
-                pdf_out = gr.File(label="Download PDF (all sections)")
+                pdf_out = gr.File(
+                    label="⬇️ Download PDF — all sections",
+                    elem_classes=["td-pdf-download"],
+                )
 
                 generate_btn.click(
                     fn=run_weekly_pack,
@@ -309,53 +345,64 @@ def build_app() -> gr.Blocks:
                 )
 
             # ── Feature 1: Worksheet-from-Textbook ───────────────────────
-            with gr.Tab("Worksheet from Textbook"):
-                gr.Markdown(
+            with gr.Tab("📷 Textbook Scan"):
+                gr.HTML(_banner(
+                    "📷", "Worksheet from Textbook",
                     "Photograph a textbook chapter or upload a PDF — "
-                    "MiniCPM-V (OpenBMB) reads it and auto-generates your full teaching pack."
-                )
-                with gr.Row():
-                    with gr.Column(scale=1):
+                    "<strong>MiniCPM-V</strong> (OpenBMB) reads it and auto-generates your full teaching pack."
+                ))
+                with gr.Row(elem_classes=["td-main-row"]):
+                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
                         tb_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class"
+                            _class_choices(), value="8", label="Class", elem_id="tb-grade"
                         )
                         tb_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject"
+                            _subject_choices(), value="Science", label="Subject", elem_id="tb-subject"
                         )
                         tb_language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language"
+                            _lang_choices(), value="English", label="Language", elem_id="tb-lang"
                         )
                         tb_question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Number of Questions"
+                            5, 30, value=20, step=5, label="Questions", elem_id="tb-count"
                         )
                         tb_difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty"
+                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
+                            elem_id="tb-diff", elem_classes=["radio-group"],
                         )
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=2, elem_classes=["content-panel"]):
                         tb_photo = gr.Image(
                             label="Textbook Photo (camera or upload)",
                             type="pil",
+                            elem_id="tb-photo",
                         )
                         tb_pdf = gr.File(
                             label="Or upload a PDF",
                             file_types=[".pdf"],
+                            elem_id="tb-pdf-in",
                         )
 
-                tb_btn = gr.Button("Extract & Generate Teaching Pack", variant="primary")
+                gr.HTML(_DIVIDER)
+                tb_btn = gr.Button(
+                    "🔍 Extract & Generate Teaching Pack", variant="primary", elem_id="tb-btn"
+                )
+                gr.HTML(_OUTPUT_LABEL)
 
                 with gr.Tabs():
-                    with gr.Tab("Worksheet"):
-                        tb_worksheet = gr.Markdown(label="Worksheet")
-                    with gr.Tab("Homework"):
-                        tb_homework = gr.Markdown(label="Homework")
-                    with gr.Tab("Quiz"):
-                        tb_quiz = gr.Markdown(label="Quiz")
-                    with gr.Tab("Answer Key"):
-                        tb_key = gr.Markdown(label="Answer Key")
-                    with gr.Tab("Parent Note"):
-                        tb_note = gr.Markdown(label="Parent Note Template")
+                    with gr.Tab("📝 Worksheet"):
+                        tb_worksheet = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("📚 Homework"):
+                        tb_homework = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("❓ Quiz"):
+                        tb_quiz = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("🔑 Answer Key"):
+                        tb_key = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("👨‍👩‍👧 Parent Note"):
+                        tb_note = gr.Markdown(elem_classes=["output-markdown"])
 
-                tb_pdf_out = gr.File(label="Download PDF (all sections)")
+                tb_pdf_out = gr.File(
+                    label="⬇️ Download PDF — all sections",
+                    elem_classes=["td-pdf-download"],
+                )
 
                 tb_btn.click(
                     fn=run_from_textbook,
@@ -366,28 +413,33 @@ def build_app() -> gr.Blocks:
                     outputs=[tb_worksheet, tb_homework, tb_quiz, tb_key, tb_note, tb_pdf_out],
                 )
 
-            # ── Feature 5: Photo Auto-Grading (Phase 4) ──────────────────
-            with gr.Tab("Photo Auto-Grading"):
-                gr.Markdown(
+            # ── Feature 5: Photo Auto-Grading ────────────────────────────
+            with gr.Tab("✏️ Auto-Grade"):
+                gr.HTML(_banner(
+                    "✏️", "Photo Auto-Grading",
                     "Photograph a student's filled answer sheet. "
-                    "MiniCPM-V (OpenBMB) reads the answers; the fine-tuned Qwen3-4B grades them "
-                    "Indian-style — step marks, partial credit, CBSE conventions."
-                )
-                with gr.Row():
-                    with gr.Column(scale=1):
+                    "<strong>MiniCPM-V</strong> reads the answers; the fine-tuned "
+                    "<strong>Qwen3-4B</strong> grades them Indian-style — "
+                    "step marks, partial credit, CBSE conventions."
+                ))
+                with gr.Row(elem_classes=["td-main-row"]):
+                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
                         ag_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class"
+                            _class_choices(), value="8", label="Class", elem_id="ag-grade"
                         )
                         ag_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject"
+                            _subject_choices(), value="Science", label="Subject", elem_id="ag-subject"
                         )
                         ag_student = gr.Textbox(
-                            label="Student Name", placeholder="e.g. Priya Sharma"
+                            label="Student Name",
+                            placeholder="e.g. Priya Sharma",
+                            elem_id="ag-student",
                         )
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=2, elem_classes=["content-panel"]):
                         ag_photo = gr.Image(
                             label="Answer Sheet Photo (camera or upload)",
                             type="pil",
+                            elem_id="ag-photo",
                         )
 
                 ag_scheme = gr.Textbox(
@@ -395,13 +447,27 @@ def build_app() -> gr.Blocks:
                     placeholder=_SCHEME_PLACEHOLDER,
                     lines=8,
                     info="Use Q<n> [<marks> marks]: format. One line per question minimum.",
+                    elem_id="ag-scheme",
                 )
 
-                ag_btn = gr.Button("Grade Answer Sheet", variant="primary")
+                gr.HTML(_DIVIDER)
+                ag_btn = gr.Button("🎯 Grade Answer Sheet", variant="primary", elem_id="ag-btn")
+                gr.HTML('<div class="td-output-label">Grading Results</div>')
 
-                ag_summary = gr.Markdown(label="Grade Summary")
-                ag_note = gr.Textbox(label="Parent Note", lines=4, interactive=False)
-                ag_pdf = gr.File(label="Download Grade Report (PDF)")
+                ag_summary = gr.Markdown(
+                    elem_id="ag-summary",
+                    elem_classes=["output-markdown"],
+                )
+                ag_note = gr.Textbox(
+                    label="Parent Note",
+                    lines=4,
+                    interactive=False,
+                    elem_id="ag-note",
+                )
+                ag_pdf = gr.File(
+                    label="⬇️ Download Grade Report (PDF)",
+                    elem_classes=["td-pdf-download"],
+                )
 
                 ag_btn.click(
                     fn=run_auto_grade,
@@ -409,26 +475,39 @@ def build_app() -> gr.Blocks:
                     outputs=[ag_summary, ag_note, ag_pdf],
                 )
 
-            # ── Feature 3: Regional Language (Phase 5) ───────────────────
-            with gr.Tab("Regional Language"):
-                gr.Markdown(
+            # ── Feature 3: Regional Language ─────────────────────────────
+            with gr.Tab("🌐 Translate"):
+                gr.HTML(_banner(
+                    "🌐", "Regional Language",
                     "Translate any teaching content into your regional language using "
-                    "**Tiny Aya** (CohereLabs/tiny-aya-fire, 3.35B, South-Asian-tuned). "
+                    "<strong>Tiny Aya</strong> (CohereLabs/tiny-aya-fire, 3.35 B, South-Asian-tuned). "
                     "Paste output from any other tab, choose a language, and download."
-                )
+                ))
                 rl_language = gr.Dropdown(
                     _LANG_CHOICES_NON_EN,
                     value=_LANG_CHOICES_NON_EN[0] if _LANG_CHOICES_NON_EN else "Hindi",
                     label="Target Language",
+                    elem_id="rl-lang",
                 )
                 rl_content = gr.Textbox(
                     label="Content to Translate",
                     placeholder="Paste worksheet, quiz, parent note, or any teaching content here…",
                     lines=12,
+                    elem_id="rl-content",
                 )
-                rl_btn = gr.Button("Translate with Tiny Aya", variant="primary")
-                rl_out = gr.Textbox(label="Translated Output", lines=12, interactive=False)
-                rl_pdf = gr.File(label="Download Translated PDF")
+                gr.HTML(_DIVIDER)
+                rl_btn = gr.Button("🌐 Translate with Tiny Aya", variant="primary", elem_id="rl-btn")
+                gr.HTML('<div class="td-output-label">Translated Output</div>')
+                rl_out = gr.Textbox(
+                    label="Translated Output",
+                    lines=12,
+                    interactive=False,
+                    elem_id="rl-out",
+                )
+                rl_pdf = gr.File(
+                    label="⬇️ Download Translated PDF",
+                    elem_classes=["td-pdf-download"],
+                )
 
                 rl_btn.click(
                     fn=run_localize,
@@ -436,55 +515,68 @@ def build_app() -> gr.Blocks:
                     outputs=[rl_out, rl_pdf],
                 )
 
-            # ── Feature 4: Illustrated Worksheets (Phase 5) ──────────────
-            with gr.Tab("Illustrated Worksheets"):
-                gr.Markdown(
-                    "Generate a full teaching pack **with labeled diagrams** embedded in the PDF. "
-                    "Qwen3-4B identifies concepts that benefit from a diagram; "
-                    "**FLUX.1-schnell** (Black Forest Labs) generates them."
-                )
-                with gr.Row():
-                    with gr.Column(scale=1):
+            # ── Feature 4: Illustrated Worksheets ────────────────────────
+            with gr.Tab("🎨 Illustrated"):
+                gr.HTML(_banner(
+                    "🎨", "Illustrated Worksheets",
+                    "Generate a full teaching pack <strong>with labeled diagrams</strong> embedded in the PDF. "
+                    "Qwen3-4B identifies key concepts; "
+                    "<strong>FLUX.1-schnell</strong> (Black Forest Labs) generates the images."
+                ))
+                with gr.Row(elem_classes=["td-main-row"]):
+                    with gr.Column(scale=1, elem_classes=["settings-panel"]):
                         il_grade = gr.Dropdown(
-                            _class_choices(), value="8", label="Class"
+                            _class_choices(), value="8", label="Class", elem_id="il-grade"
                         )
                         il_subject = gr.Dropdown(
-                            _subject_choices(), value="Science", label="Subject"
+                            _subject_choices(), value="Science", label="Subject", elem_id="il-subject"
                         )
                         il_language = gr.Dropdown(
-                            _lang_choices(), value="English", label="Language"
+                            _lang_choices(), value="English", label="Language", elem_id="il-lang"
                         )
                         il_question_count = gr.Slider(
-                            5, 30, value=20, step=5, label="Number of Questions"
+                            5, 30, value=20, step=5, label="Questions", elem_id="il-count"
                         )
                         il_difficulty = gr.Radio(
-                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty"
+                            ["Easy", "Medium", "Hard"], value="Medium", label="Difficulty",
+                            elem_id="il-diff", elem_classes=["radio-group"],
                         )
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=2, elem_classes=["content-panel"]):
                         il_chapter_text = gr.Textbox(
                             label="Chapter Content",
                             placeholder="Paste chapter text here…",
                             lines=10,
+                            elem_id="il-chapter",
                         )
 
-                il_btn = gr.Button("Generate Illustrated Pack", variant="primary")
-                il_diagram_status = gr.Textbox(
-                    label="Diagram Status", interactive=False, lines=1
+                gr.HTML(_DIVIDER)
+                il_btn = gr.Button(
+                    "🎨 Generate Illustrated Pack", variant="primary", elem_id="il-btn"
                 )
+                il_diagram_status = gr.Textbox(
+                    label="Diagram Status",
+                    interactive=False,
+                    lines=1,
+                    elem_id="il-status",
+                )
+                gr.HTML(_OUTPUT_LABEL)
 
                 with gr.Tabs():
-                    with gr.Tab("Worksheet"):
-                        il_worksheet = gr.Markdown(label="Worksheet")
-                    with gr.Tab("Homework"):
-                        il_homework = gr.Markdown(label="Homework")
-                    with gr.Tab("Quiz"):
-                        il_quiz = gr.Markdown(label="Quiz")
-                    with gr.Tab("Answer Key"):
-                        il_key = gr.Markdown(label="Answer Key")
-                    with gr.Tab("Parent Note"):
-                        il_note = gr.Markdown(label="Parent Note")
+                    with gr.Tab("📝 Worksheet"):
+                        il_worksheet = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("📚 Homework"):
+                        il_homework = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("❓ Quiz"):
+                        il_quiz = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("🔑 Answer Key"):
+                        il_key = gr.Markdown(elem_classes=["output-markdown"])
+                    with gr.Tab("👨‍👩‍👧 Parent Note"):
+                        il_note = gr.Markdown(elem_classes=["output-markdown"])
 
-                il_pdf = gr.File(label="Download Illustrated PDF (diagrams embedded)")
+                il_pdf = gr.File(
+                    label="⬇️ Download Illustrated PDF (diagrams embedded)",
+                    elem_classes=["td-pdf-download"],
+                )
 
                 il_btn.click(
                     fn=run_illustrated_pack,
@@ -498,14 +590,24 @@ def build_app() -> gr.Blocks:
                     ],
                 )
 
-        # Footer
+        # ── Footer ───────────────────────────────────────────────────────────
         gr.HTML(
             '<div id="td-footer">'
-            "Built with ❤️ for Indian teachers · "
-            "<a href='https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b' "
-            "target='_blank'>Fine-tuned Qwen3-4B</a> · "
-            "Powered by Modal, MiniCPM-V, Tiny Aya &amp; FLUX.1-schnell"
-            "</div>"
+            '<div class="td-footer-badges">'
+            '<span class="td-footer-badge">Qwen3-4B Fine-tuned</span>'
+            '<span class="td-footer-badge">MiniCPM-V 8B</span>'
+            '<span class="td-footer-badge">Tiny Aya 3.35B</span>'
+            '<span class="td-footer-badge">FLUX.1-schnell</span>'
+            '<span class="td-footer-badge">Modal GPU</span>'
+            '<span class="td-footer-badge">HF × Gradio Hackathon 2026</span>'
+            '</div>'
+            '<div class="td-footer-text">'
+            'Built with ❤️ for Indian teachers &nbsp;·&nbsp; '
+            '<a href="https://huggingface.co/naazimsnh02/tutordesk-qwen3-4b" target="_blank">'
+            'Fine-tuned Qwen3-4B</a> &nbsp;·&nbsp; '
+            'Powered by Modal, MiniCPM-V, Tiny Aya &amp; FLUX.1-schnell'
+            '</div>'
+            '</div>'
         )
 
     return demo
